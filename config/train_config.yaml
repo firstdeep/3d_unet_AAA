@@ -12,16 +12,16 @@ aaa:
   # how many subprocesses to use for data loading
   num_workers: 4
 
-  file_path: "/home/bh/Downloads/pytorch-3dunet-master/data/"
+  file_path: "/home/bh/PycharmProjects/3d_pytorch_bh/data/"
   raw_path: "raw_256"
   mask_path: "mask_256"
   weight_path: null
 
   # threshold number of slice in datasets
-  slice_num: 16
-  slice_train: 16
+  slice_num: 24
+  slice_train: 24
 
-  ratio_train_test: 0.3
+  ratio_train_test: 0.25
 
   # configuration of the train loader
   train:

@@ -3,8 +3,10 @@ import torch
 import torch.nn as nn
 import yaml
 from utils import *
+import cv2
 
-
+def count_parameter(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 class NegDiceLoss(nn.Module):
     def __init__(self):
@@ -41,9 +43,8 @@ def _load_config_yaml(config_file):
 
 
 
-def main(gpu_idx):
-    lr = 0.0001
-    epoch_max = 50
+def main(gpu_idx, mode, lr = 0.001, epoch_max=50):
+
     config_file_path = "./config/train_config.yaml"
 
     config = _load_config_yaml(config_file_path)
@@ -51,39 +52,86 @@ def main(gpu_idx):
     GPU_NUM = gpu_idx
     device = torch.device(f'cuda:{GPU_NUM}') if torch.cuda.is_available() else torch.device('cpu')
 
-    model = UNet3D(n_channels=1, n_classes=2)
-    model.to(device)
+    model = UNet3D(n_channels=1, n_classes=1)
+
+    print(count_parameter(model))
 
     params = [p for p in model.parameters() if p.requires_grad]
     optimizer = torch.optim.RMSprop(params, lr=lr)
-    loss_criterion = NegDiceLoss()
+    # loss_criterion = NegDiceLoss()
+    loss_criterion = nn.BCEWithLogitsLoss()
     lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer, gamma=0.99)
 
     loaders = get_aaa_train_loader(config)
 
-    for epoch in range(0,epoch_max):
-        print("=== Epoch %d ==="%(epoch+1))
-        model.train()
+    if mode == 'train':
+
+        model.to(device)
+        for epoch in range(0,epoch_max):
+            print("=== Epoch %d ==="%(epoch+1))
+            model.train()
+            loss_list = []
+            for t in loaders['train']:
+                input, target, weight = _split_training_batch(t, device)
+                output = model(input)
+                # output = output[:,1:]
+
+                loss = loss_criterion(output, target)
+                print(loss)
+                # loss_list.append(loss)
+
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+
+            lr_scheduler.step()
+            print(lr_scheduler.get_last_lr())
+            torch.save(model.state_dict(), './pretrained/3d_unet_256_36_bce_0.0001.pth')
+            # print(sum(loss)/len(loss))
+        print("=== Training Done")
+
+
+    if mode =='test':
+        count = 1
+        model.load_state_dict(torch.load('./pretrained/3d_unet_256_36_bce_0.0001.pth'))
+        model.to(device)
+        model.eval()
 
         for t in loaders['train']:
-            input, target, weight = _split_training_batch(t, device)
-            output = model(input)
-            output = output[:,1:]
-            loss = loss_criterion(output, target)
-            print(loss)
+            for idx in range(len(t[0])):
 
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+                input = t[0][idx]
+                label = t[1][idx]
+                input = input.to(device)
 
-        lr_scheduler.step()
-        print(lr_scheduler.get_lr())
-        torch.save(model.state_dict(), './pretrained/3d_uent_0.0001.pth')
+                output = model(input)
+                sig = nn.Sigmoid()
+                output = sig(output)
 
-    print("=== Training Done")
+                output = output[0,0].detach().cpu().numpy() * 255.
+                input = input[0,0].detach().cpu().numpy() * 255.
+
+                output[output > 127.5] = 255
+                output[output < 127.5] = 0
+
+                output = output.astype(np.uint8)
+                input = input.astype(np.uint8)
+
+                for i in range(0,24):
+                    cv2.imwrite("./result/raw/%d_%d.png"%(count, 24*idx+i), input[0])
+                    cv2.imwrite("./result/mask/%d_%d.png"%(count, 24*idx+i), output[0])
+
+
+            count = count + 1
+
+
+
 
 
 if __name__ =="__main__":
     print("=== Training Start")
-    gpu_idx = 1
-    main(gpu_idx)
+    lr = 0.0001
+    epoch_max = 1000
+    gpu_idx = 2
+    mode = 'test'
+    main(gpu_idx, mode, lr=lr, epoch_max=epoch_max)

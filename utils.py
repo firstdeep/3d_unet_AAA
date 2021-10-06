@@ -297,11 +297,11 @@ def get_aaa_train_loader(config):
 
     transformer_config = loaders_config['train']['transformer']
     slice_train = loaders_config.get("slice_train",1)
-
+    print("** Data train loader")
     dataset_train = aaa_data.aaaLoader(file_path=file_path, raw_path=raw_path, mask_path=mask_path,
                                                          phase='train', total_subject=subject_slice_idx,
                                                          slice_train=slice_train, transformer_config=transformer_config)
-
+    print("** Data test loader ")
     dataset_val = aaa_data.aaaLoader(file_path=file_path, raw_path=raw_path, mask_path=mask_path,
                                                          phase='test', total_subject=subject_slice_idx,
                                                          slice_train=slice_train, transformer_config=transformer_config)
@@ -351,7 +351,7 @@ def get_aaa_test_loader(config):
     transformer_config = loaders_config['test']['transformer']
     slice_train = loaders_config.get("slice_train",1)
 
-    dataset = pytorch3dunet.datasets.aaa.aaaLoader(file_path=file_path, raw_path=raw_path, mask_path=mask_path, phase='test', total_subject=subject_slice_idx,
+    dataset = aaa_data.aaaLoader(file_path=file_path, raw_path=raw_path, mask_path=mask_path, phase='test', total_subject=subject_slice_idx,
                                                    slice_train=slice_train, transformer_config=transformer_config)
     print(test_idx)
     test_datasets = torch.utils.data.Subset(dataset, test_idx)

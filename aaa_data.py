@@ -104,9 +104,6 @@ class aaaLoader(torch.utils.data.Dataset):
 
 
     def __getitem__(self, idx):
-        prob = random.randint(1,11)
-        execution_prob = 0.15
-        # print("Subject index = %d"%idx)
 
         # all raw image & mask
         raw = self.raw_all[idx]
@@ -115,20 +112,21 @@ class aaaLoader(torch.utils.data.Dataset):
 
         raw_temp = np.zeros((self.slice_train, 256, 256)).astype(np.uint8)
         mask_temp = np.zeros((self.slice_train, 256, 256)).astype(np.uint8)
+        # raw_temp = np.zeros((self.slice_train, 512, 512)).astype(np.uint8)
+        # mask_temp = np.zeros((self.slice_train, 512, 512)).astype(np.uint8)
 
         depth = raw.shape[0]
 
-        index_list = sorted(random.sample(range(0,depth), self.slice_train))
+        # index_list = sorted(random.sample(range(0,depth), self.slice_train))
+        start_idx = random.sample(range(0, depth-self.slice_train+1), 1)
 
         if self.phase == 'train':
 
-            for idx in range(self.slice_train):
-                slice_index = index_list[idx]
-                raw_slice = raw[slice_index]
-                mask_slice = mask[slice_index]
+            for idx in range(0,self.slice_train):
+                index = int(start_idx[0])+idx
 
-                raw_temp[idx] = raw_slice
-                mask_temp[idx] = mask_slice
+                raw_temp[idx] = raw[index]
+                mask_temp[idx] = mask[index]
 
             ##########################################################################################################
 
@@ -145,90 +143,49 @@ class aaaLoader(torch.utils.data.Dataset):
 
             return raw, mask
 
-        # if self.phase == 'train':
-        #     subject_depth = raw.shape[0]
-        #     start_idx = random.randint(0, (subject_depth - self.slice_train))
-        #
-        #     # slicing in all image & mask
-        #     # raw shape: depth * h * w
-        #     raw = raw[start_idx:start_idx + self.slice_train]
-        #     mask = mask[start_idx:start_idx + self.slice_train]
-        #     mask = approximate_image(mask)
-        #
-        #     # data augmentation
-        #     # Noise
-        #     # Elastic deformation
-        #     # crop 512 image size to 256 crop size
-        #     # normalization (255 divided)
-        #
-        #     # sigma = random.randint(5, 12)
-        #     # init_seed = None
-        #     # for idx in range(raw.shape[0]):
-        #     #     slice_index = index_list[idx]
-        #     #     raw_slice = raw[slice_index]
-        #     #     mask_slice = mask[slice_index]
-        #     #
-        #     #     if prob > 4:
-        #     #         # [Data augmentation] Elastic_transform
-        #     #         raw_slice, seed = add_elastic_transform(raw_slice, alpha=40, sigma=sigma, seed=init_seed, pad_size=30)
-        #     #         if init_seed == None:
-        #     #             init_seed = seed
-        #     #         mask_slice, _ = add_elastic_transform(mask_slice, alpha=40, sigma=sigma, seed=seed, pad_size=30)
-        #     #         mask_slice = approximate_image(mask_slice)
-        #     #
-        #     #     # [Data augmentation] Noise
-        #     #
-        #     #     if random.random() < execution_prob:
-        #     #         raw_slice = random_noise(raw_slice, mode='gaussian', clip=True)
-        #     #
-        #     #     if random.random() < execution_prob:
-        #     #         raw_slice = random_noise(raw_slice, mode='speckle', clip=True)
-        #     #
-        #     #     if random.random() < execution_prob:
-        #     #         seed = random.uniform(0, 1)
-        #     #         raw_slice = random_noise(raw_slice, mode='s&p', salt_vs_pepper=seed, clip=True)
-        #     #
-        #     #
-        #     #     raw[idx] = raw_slice
-        #     #     mask[idx] = mask_slice
-        #
-        #     ############################################################################################################
-        #
-        #     raw = raw / 255.
-        #     raw = raw.astype(np.float32)
-        #     mask = mask / 255.
-        #     mask = mask.astype(np.float32)
-        #
-        #     # expand dimension
-        #     raw = np.expand_dims(raw, axis=0)
-        #     mask = np.expand_dims(mask, axis=0)
-        #
-        #     raw_transformed = raw
-        #     label_transformed = mask
-        #     return raw_transformed, label_transformed
-
         if self.phase == 'test':
-            # print("idx = %d, depth = %d"%(idx, depth))
-            # start slice number
+            test_raw_list = []
+            test_label_list = []
+
+            index_iter = depth // self.slice_train
+            index_rest = depth % self.slice_train
+
+            print(index_rest)
+
             start_idx = 0
-            if depth-start_idx > self.slice_train:
-                # slicing in all image & mask
-                raw = raw[start_idx:start_idx + self.slice_train]
-                mask = mask[start_idx:start_idx + self.slice_train]
+            for idx in range(index_iter):
 
-            mask = approximate_image(mask)
-            raw = raw / 255
-            raw = raw.astype(np.float32)
-            mask = mask / 255
-            mask = mask.astype(np.float32)
+                raw_temp = raw[(idx*self.slice_train) : (idx*self.slice_train) + self.slice_train]
+                mask_temp = mask[(idx*self.slice_train) : (idx*self.slice_train) + self.slice_train]
 
-            # expand dimension
-            raw = np.expand_dims(raw, axis=0)
-            mask = np.expand_dims(mask, axis=0)
+                raw_temp = raw_temp / 255
+                raw_temp = raw_temp.astype(np.float32)
 
-            raw_transformed = raw
-            label_transformed = mask
-            return raw_transformed, label_transformed
+                mask_temp = approximate_image(mask_temp)
+                mask_temp = mask_temp / 255
+                mask_temp = mask_temp.astype(np.float32)
+
+                # expand dimension
+                raw_temp = np.expand_dims(raw_temp, axis=0)
+                mask_temp = np.expand_dims(mask_temp, axis=0)
+
+                test_raw_list.append(raw_temp)
+                test_label_list.append(mask_temp)
+
+            # # Processing rest of data
+            # raw_zero = np.zeros((self.slice_train,256,256), dtype=np.float32)
+            # mask_zero = np.zeros((self.slice_train,256,256), dtype=np.float32)
+            #
+            # if not index_rest == 0:
+            #     raw_zero[0:int(index_rest)] = raw[-int(index_rest):]
+            #     mask_zero[0:int(index_rest)] = mask[-int(index_rest):]
+            #     raw_zero = np.expand_dims(raw_zero, axis=0)
+            #     mask_zero = np.expand_dims(mask_zero, axis=0)
+            #
+            #     test_raw_list.append(raw_zero)
+            #     test_label_list.append(mask_zero)
+
+            return test_raw_list, test_label_list
 
 
     @staticmethod

@@ -5,6 +5,14 @@ import torch.nn.functional as F
 from unet_3d_parts import *
 
 
+# DeepAAA
+# https://dl.acm.org/doi/10.1007/978-3-030-32245-8_80
+# pooling (2 * 2 * 1(depth))
+# Batch normalization
+# dropout regularization in bottleneck module (rate 0.2)
+# RMSprop optimizer
+#
+
 class UNet3D(nn.Module):
     def __init__(self, n_channels, n_classes):
         super(UNet3D, self).__init__()
@@ -28,23 +36,23 @@ class UNet3D(nn.Module):
 
     def forward(self, x):
         x1 = self.down1(x)
-        print(x1.shape)
+        # print(x1.shape)
         x2 = self.down2(x1)
-        print(x2.shape)
+        # print(x2.shape)
         x3 = self.down3(x2)
-        print(x3.shape)
+        # print(x3.shape)
         x4 = self.down4(x3)
-        print(x4.shape)
+        # print(x4.shape)
 
         x = self.up1(x4, x3)
-        print(x.shape)
-        x = self.up2(x, x2)
-        print(x.shape)
+        # print(x.shape)
+        x  = self.up2(x, x2)
+        # print(x.shape)
         x = self.up3(x, x1)
-        print(x.shape)
+        # print(x.shape)
 
         logits = self.final(x)
-        print(logits.shape)
-        output = self.final_activation(logits)
-        print(output.shape)
-        return output
+        # print(logits.shape)
+        # logits = self.final_activation(logits)
+        # print(output.shape)
+        return logits
