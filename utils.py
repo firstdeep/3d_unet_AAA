@@ -9,6 +9,7 @@ from scipy.ndimage.filters import gaussian_filter
 import numpy as np
 import torch
 from torch.utils.data import DataLoader, ConcatDataset, Dataset
+from sklearn.model_selection import KFold
 
 
 import aaa_data
@@ -264,50 +265,30 @@ def get_slice_builder(raws, labels, weight_maps, config):
     return slice_builder_cls(raws, labels, weight_maps, **config)
 
 
-def get_aaa_train_loader(config):
-    assert 'loaders' in config, 'Could not find data loaders configuration'
+def get_aaa_train_loader(config, train_sub):
     loaders_config = config['aaa']
-
-
-    slice_num = int(loaders_config.get('slice_num',1))
-    ratio = float(loaders_config.get('ratio_train_test',1))
 
     batch_size = loaders_config.get('batch_size', 1)
     num_workers = loaders_config.get('num_workers', 1)
 
+    all_npy_file = natsort.natsorted(os.listdir(os.path.join(loaders_config['prepro_path'], loaders_config['raw_path'])))
 
-    file_path = loaders_config.get("file_path", 1)
-    raw_path = os.path.join(file_path,str(loaders_config.get("raw_path",1)))
-    mask_path = os.path.join(file_path,str(loaders_config.get("mask_path",1)))
+    train_input = [index for index in all_npy_file if int(index.split("_")[0]) in train_sub]
+    total_num = len(train_input)
+    valid_num = int(total_num * loaders_config['valid_ratio'])
 
-    # number of int subject folder
-    total_subject = list(natsort.natsorted(os.listdir(raw_path)))
-    total_subject = np.zeros((len(total_subject)))
+    train_val = random.sample(train_input, valid_num)
+    train_input = [index for index in train_input if index not in train_val]
 
-    for i in range(0,total_subject.shape[0]):
-        total_subject[i] = len(list(os.listdir(os.path.join(raw_path, str(i+1)))))
+    npy_raw_path = os.path.join(loaders_config['prepro_path'], loaders_config['raw_path'])
+    npy_mask_path = os.path.join(loaders_config['prepro_path'], loaders_config['mask_path'])
 
-    subject_slice_idx = list(np.where(total_subject>=slice_num))[0]
-    subject_len = len(subject_slice_idx)
-    ratio = int(subject_len * ratio)
+    dataset_train = aaa_data.aaaLoader(raw_path=npy_raw_path, mask_path=npy_mask_path, file_idx=train_input)
 
-    subject_list = list(range(0,subject_len))
-    train_idx = subject_list[ratio:]
-    test_idx = [index for index in subject_list if index not in train_idx]
+    dataset_val = aaa_data.aaaLoader(raw_path=npy_raw_path, mask_path=npy_mask_path, file_idx=train_val)
 
-    transformer_config = loaders_config['train']['transformer']
-    slice_train = loaders_config.get("slice_train",1)
-    print("** Data train loader")
-    dataset_train = aaa_data.aaaLoader(file_path=file_path, raw_path=raw_path, mask_path=mask_path,
-                                                         phase='train', total_subject=subject_slice_idx,
-                                                         slice_train=slice_train, transformer_config=transformer_config)
-    print("** Data test loader ")
-    dataset_val = aaa_data.aaaLoader(file_path=file_path, raw_path=raw_path, mask_path=mask_path,
-                                                         phase='test', total_subject=subject_slice_idx,
-                                                         slice_train=slice_train, transformer_config=transformer_config)
-
-    train_datasets = torch.utils.data.Subset(dataset_train, train_idx)
-    val_datasets = torch.utils.data.Subset(dataset_val, test_idx)
+    train_datasets = torch.utils.data.Subset(dataset_train, train_input)
+    val_datasets = torch.utils.data.Subset(dataset_val, train_val)
 
     # when training with volumetric data use batch_size of 1 due to GPU memory constraints
     return {
@@ -479,3 +460,21 @@ def approximate_image(image):
     return image
 
 
+def count_parameter(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+
+def split_training_batch(t, device):
+    def _move_to_device(input):
+        if isinstance(input, tuple) or isinstance(input, list):
+            return tuple([_move_to_device(x) for x in input])
+        else:
+            return input.to(device)
+
+    t = _move_to_device(t)
+    weight = None
+    if len(t) == 2:
+        input, target = t
+    else:
+        input, target, weight = t
+    return input, target, weight

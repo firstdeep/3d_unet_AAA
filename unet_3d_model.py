@@ -10,7 +10,6 @@ from unet_3d_parts import *
 # pooling (2 * 2 * 1(depth))
 # Batch normalization
 # dropout regularization in bottleneck module (rate 0.2)
-# RMSprop optimizer
 #
 
 class UNet3D(nn.Module):
@@ -30,8 +29,6 @@ class UNet3D(nn.Module):
         self.up2 = Up(256, 128)
         self.up3 = Up(128, 64)
         self.final = FinalConv(64, n_classes)
-
-        self.final_activation = nn.Softmax(dim=1)
 
 
     def forward(self, x):
@@ -53,6 +50,5 @@ class UNet3D(nn.Module):
 
         logits = self.final(x)
         # print(logits.shape)
-        # logits = self.final_activation(logits)
-        # print(output.shape)
+
         return logits

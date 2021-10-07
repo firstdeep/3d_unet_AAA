@@ -21,171 +21,33 @@ class aaaLoader(torch.utils.data.Dataset):
     """
 
     def __init__(self,
-                 file_path,
                  raw_path,
                  mask_path,
-                 phase,
-                 total_subject,
-                 slice_train,
-                 transformer_config
+                 file_idx
           ):
 
-        self.file_path = file_path
         self.raw_path = raw_path
         self.mask_path = mask_path
-        self.phase = phase
-        self.total_subject = total_subject
-        self.transformer = transformer_config
-        self.slice_train = slice_train
-
-        self.raw_all = []
-        self.mask_all = []
-
-        if self.phase!='test':
-            for idx in self.total_subject:
-                raw_path = os.path.join(self.raw_path,str(idx+1))
-                mask_path = os.path.join(self.mask_path,str(idx+1))
-                file_list = list(natsort.natsorted(os.listdir(raw_path)))
-
-                file_raw = []
-                file_mask = []
-
-                for file_idx in file_list:
-                    raw = Image.open(os.path.join(raw_path,str(file_idx)))
-                    mask = Image.open(os.path.join(mask_path,str(file_idx)))
-                    raw = np.array(raw)
-                    mask = np.array(mask)
-
-                    if len(file_raw)==0:
-                        file_raw = raw
-                        file_mask = mask
-
-                    else:
-                        file_raw = np.dstack((file_raw, raw))
-                        file_mask = np.dstack((file_mask, mask))
-
-
-                file_raw = np.transpose(file_raw,(2,0,1))
-                file_mask = np.transpose(file_mask,(2,0,1))
-
-                self.raw_all.append(file_raw)
-                self.mask_all.append(file_mask)
-
-
-        if self.phase == 'test':
-            for idx in self.total_subject:
-                raw_path = os.path.join(self.raw_path,str(idx+1))
-                mask_path = os.path.join(self.mask_path,str(idx+1))
-                file_list = list(natsort.natsorted(os.listdir(raw_path)))
-
-                file_raw = []
-                file_mask = []
-
-                for file_idx in file_list:
-                    raw = Image.open(os.path.join(raw_path,str(file_idx)))
-                    mask = Image.open(os.path.join(mask_path,str(file_idx)))
-                    raw = np.array(raw)
-                    mask = np.array(mask)
-
-                    if len(file_raw)==0:
-                        file_raw = raw
-                        file_mask = mask
-
-                    else:
-                        file_raw = np.dstack((file_raw, raw))
-                        file_mask = np.dstack((file_mask, mask))
-
-
-                file_raw = np.transpose(file_raw,(2,0,1))
-                file_mask = np.transpose(file_mask,(2,0,1))
-
-                self.raw_all.append(file_raw)
-                self.mask_all.append(file_mask)
+        self.file_idx = file_idx
 
 
     def __getitem__(self, idx):
 
-        # all raw image & mask
-        raw = self.raw_all[idx]
-        mask = self.mask_all[idx]
-        # mask = approximate_image(mask)
+        raw = np.load(os.path.join(self.raw_path, idx))
+        mask = np.load(os.path.join(self.mask_path, idx))
 
-        raw_temp = np.zeros((self.slice_train, 256, 256)).astype(np.uint8)
-        mask_temp = np.zeros((self.slice_train, 256, 256)).astype(np.uint8)
-        # raw_temp = np.zeros((self.slice_train, 512, 512)).astype(np.uint8)
-        # mask_temp = np.zeros((self.slice_train, 512, 512)).astype(np.uint8)
+        raw = raw/255.
+        raw = raw.astype(np.float32)
 
-        depth = raw.shape[0]
+        mask = approximate_image(mask)
+        mask = mask/255.
+        mask = mask.astype(np.float32)
 
-        # index_list = sorted(random.sample(range(0,depth), self.slice_train))
-        start_idx = random.sample(range(0, depth-self.slice_train+1), 1)
+        # expand dimension
+        raw = np.expand_dims(raw, axis=0)
+        mask = np.expand_dims(mask, axis=0)
 
-        if self.phase == 'train':
-
-            for idx in range(0,self.slice_train):
-                index = int(start_idx[0])+idx
-
-                raw_temp[idx] = raw[index]
-                mask_temp[idx] = mask[index]
-
-            ##########################################################################################################
-
-            raw_temp = raw_temp/255.
-            raw_temp = raw_temp.astype(np.float32)
-
-            mask_temp = approximate_image(mask_temp)
-            mask_temp = mask_temp/255.
-            mask_temp = mask_temp.astype(np.float32)
-
-            # expand dimension
-            raw = np.expand_dims(raw_temp, axis=0)
-            mask = np.expand_dims(mask_temp, axis=0)
-
-            return raw, mask
-
-        if self.phase == 'test':
-            test_raw_list = []
-            test_label_list = []
-
-            index_iter = depth // self.slice_train
-            index_rest = depth % self.slice_train
-
-            print(index_rest)
-
-            start_idx = 0
-            for idx in range(index_iter):
-
-                raw_temp = raw[(idx*self.slice_train) : (idx*self.slice_train) + self.slice_train]
-                mask_temp = mask[(idx*self.slice_train) : (idx*self.slice_train) + self.slice_train]
-
-                raw_temp = raw_temp / 255
-                raw_temp = raw_temp.astype(np.float32)
-
-                mask_temp = approximate_image(mask_temp)
-                mask_temp = mask_temp / 255
-                mask_temp = mask_temp.astype(np.float32)
-
-                # expand dimension
-                raw_temp = np.expand_dims(raw_temp, axis=0)
-                mask_temp = np.expand_dims(mask_temp, axis=0)
-
-                test_raw_list.append(raw_temp)
-                test_label_list.append(mask_temp)
-
-            # # Processing rest of data
-            # raw_zero = np.zeros((self.slice_train,256,256), dtype=np.float32)
-            # mask_zero = np.zeros((self.slice_train,256,256), dtype=np.float32)
-            #
-            # if not index_rest == 0:
-            #     raw_zero[0:int(index_rest)] = raw[-int(index_rest):]
-            #     mask_zero[0:int(index_rest)] = mask[-int(index_rest):]
-            #     raw_zero = np.expand_dims(raw_zero, axis=0)
-            #     mask_zero = np.expand_dims(mask_zero, axis=0)
-            #
-            #     test_raw_list.append(raw_zero)
-            #     test_label_list.append(mask_zero)
-
-            return test_raw_list, test_label_list
+        return raw, mask
 
 
     @staticmethod
