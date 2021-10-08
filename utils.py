@@ -269,6 +269,7 @@ def get_aaa_train_loader(config, train_sub):
     loaders_config = config['aaa']
 
     batch_size = loaders_config.get('batch_size', 1)
+    batch_size_valid = int(batch_size/2)
     num_workers = loaders_config.get('num_workers', 1)
 
     all_npy_file = natsort.natsorted(os.listdir(os.path.join(loaders_config['prepro_path'], loaders_config['raw_path'])))
@@ -294,7 +295,7 @@ def get_aaa_train_loader(config, train_sub):
     return {
         'train': DataLoader(train_datasets, batch_size=batch_size, shuffle=True, num_workers=num_workers),
         # don't shuffle during validation: useful when showing how predictions for a given batch get better over time
-        'val': DataLoader(val_datasets, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+        'val': DataLoader(val_datasets, batch_size=batch_size_valid, shuffle=False, num_workers=num_workers)
     }
 
 def get_aaa_test_loader(config):
@@ -478,3 +479,18 @@ def split_training_batch(t, device):
     else:
         input, target, weight = t
     return input, target, weight
+
+def split_training_batch_validation(t, device):
+    def _move_to_device(input):
+        if isinstance(input, tuple) or isinstance(input, list):
+            return tuple([_move_to_device(x) for x in input])
+        else:
+            return input.to(device)
+
+    t = _move_to_device(t)
+    weight = None
+    if len(t) == 2:
+        input, target = t
+
+    return input, target
+

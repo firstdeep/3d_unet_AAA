@@ -3,10 +3,12 @@ import torch
 import torch.nn as nn
 import yaml
 import cv2
+import time
 
 from utils import *
 from loss_func import *
-from preprocessing_input_data import pre_data_saving
+from evaluation import *
+from preprocessing_input_data import pre_train_data_saving
 
 
 def load_config_yaml(config_file):
@@ -44,16 +46,31 @@ def main(config):
         print("=============================")
 
         if config['trainer']['mode'] == 'train':
+            # If pretrained exist, load model & optimizer
+            resume_epoch = 0
+            if config['trainer']['resume']:
+                state = torch.load(config['trainer']['save_model_path'], map_location=device)
+                model.load_state_dict(state['model_state_dict'])
+                optimizer.load_state_dict(state['optimizer_state_dict'])
+                resume_epoch = state['epoch']
+
+                # Optimizer device setting
+                for state in optimizer.state.values():
+                    for k, v in state.items():
+                        if isinstance(v, torch.Tensor):
+                            state[k] = v.to(device)
 
             model.to(device)
-
-            # 10.07: Change to use less memory
+            # 21.10.07: Change to use less memory
             loaders = get_aaa_train_loader(config, train_ids)
 
             for epoch in range(0,config['trainer']['max_epochs']):
-                print("** Epoch %d"%(epoch+1))
+                if config['trainer']['resume']:
+                    epoch = resume_epoch
+                start_time = time.time()
                 model.train()
                 loss_sum = []
+
                 for t in loaders['train']:
                     input, target, weight = split_training_batch(t, device)
                     output = model(input)
@@ -67,27 +84,76 @@ def main(config):
 
                 lr_scheduler.step()
 
-                print("** [INFO] Loss = %f & LR = %f"%(sum(loss_sum)/len(loss_sum), lr_scheduler.get_last_lr()[0]))
+                print("** [INFO] Epoch \"%d\", Loss = %f & LR = %f & Time = %.2f min" % (
+                epoch, sum(loss_sum)/len(loss_sum), lr_scheduler.get_last_lr()[0], ((time.time() - start_time) / 60.)))
 
-                torch.save(model.state_dict(), './pretrained/3d_deepAAA_%d.pth'%fold)
-            ########################################################################################
-            # validation
-            if epoch % 10 == 0:
-                print(epoch)
-                # Evaluation
+                torch.save({'epoch': epoch,
+                            'model_state_dict': model.state_dict(),
+                            'optimizer_state_dict': optimizer.state_dict()
+                            }, './pretrained/3d_deepAAA_%d.pth'%fold)
 
-            print("=== Training Done")
+                ########################################################################################
+                # validation
+                if epoch % config['trainer']['validate_after_iters'] == 0:
+
+                    print("*******************")
+                    print("   Validating...   ")
+                    print("*******************")
+
+                    # [Delete] For testing
+                    # state = torch.load("/home/bh/PycharmProjects/3d_pytorch_bh/pretrained/test2.pth", map_location='cpu')
+                    # model.load_state_dict(state['model_state_dict'])
+                    # model.to(device)
+
+                    model.eval()
+
+                    valid_over = []
+                    valid_jaccard = []
+                    valid_dice = []
+                    valid_fn = []
+                    valid_fp = []
+
+                    for i, t in enumerate(loaders['val']):
+                        input, target = split_training_batch_validation(t, device)
+                        # input & output shape: batch*1*8(slice_num)*256*256
+                        output = model(input)
+
+                        sig = nn.Sigmoid()
+                        output_sig = sig(output)
+
+                        pred = np.array(output_sig.data.cpu())
+                        target = np.array(target.data.cpu())
+
+                        overlap, jaccard, dice, fn, fp = eval_segmentation_volume(pred, target)
+                        valid_over.append(overlap)
+                        valid_jaccard.append(jaccard)
+                        valid_dice.append(dice)
+                        valid_fn.append(fn)
+                        valid_fp.append(fp)
+
+                    print('Validation Evaluation: Overlap: %.4f, Jaccard: %.4f, Dice: %.4f, FN: %.4f, FP: %.4f'
+                          % (np.mean(valid_over), np.mean(valid_jaccard), np.mean(valid_dice), np.mean(valid_fn),
+                             np.mean(valid_fp)))
+
+
+            print("=== Training Done ===")
 
         ########################################################################################
-        # EVALUATION
-        if config['trainer']['mode'] == 'train' =='test':
+        # Test datasets evaluation
+        if config['trainer']['mode'] =='test':
+
+            print("*******************")
+            print("     Testing...    ")
+            print("     FOLD \"%d\"   "%(fold))
+            print("*******************")
 
             loaders = get_aaa_test_loader(config, train_ids)
 
-            count = 1
-            model.load_state_dict(torch.load('./pretrained/3d_unet_256_36_bce_0.0001.pth'))
-            model.to(device)
+            state = torch.load(config['trainer']['save_model_path'], map_location=device)
+
+            model.load_state_dict(state['model_state_dict'])
             model.eval()
+            model.to(device)
 
             for t in loaders['train']:
                 for idx in range(len(t[0])):
@@ -113,7 +179,6 @@ def main(config):
                         cv2.imwrite("./result/raw/%d_%d.png"%(count, 24*idx+i), input[0])
                         cv2.imwrite("./result/mask/%d_%d.png"%(count, 24*idx+i), output[0])
 
-
                 count = count + 1
 
 
@@ -125,6 +190,6 @@ if __name__ =="__main__":
     config_file_path = "./config/train_config.yaml"
     config = load_config_yaml(config_file_path)
 
-    # pre_data_saving(config=config)
+    # pre_train_data_saving(config=config)
 
     main(config)

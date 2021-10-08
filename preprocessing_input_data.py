@@ -15,7 +15,7 @@ from PIL import Image
 
 ###################################################################
 
-def pre_data_saving(config):
+def pre_train_data_saving(config):
     dst_path = './data/preprocess/256/'
     aaa_config = config['aaa']
     mini_slice = aaa_config['slice_num']
@@ -74,4 +74,4 @@ if __name__ =="__main__":
     print("=== Training Start")
     config_file_path = "./config/train_config.yaml"
     config = load_config_yaml(config_file_path)
-    pre_data_saving(config=config)
+    pre_train_data_saving(config=config)

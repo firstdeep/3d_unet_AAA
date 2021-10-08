@@ -3,6 +3,36 @@
 # Training and validation data can be downloaded from: https://osf.io/thxzn/
 
 #BH
+trainer:
+  # mode train or test 
+  mode: "train"
+  # gpu number 
+  gpu_idx: 0
+  # path to the checkpoint directory
+  checkpoint_dir: "/home/bh/Downloads/pytorch-3dunet-master/data"
+  # path to latest checkpoint; if provided the training will be resumed from that checkpoint
+  resume: True
+  save_model_path: "/home/bh/PycharmProjects/3d_pytorch_bh/pretrained/3d_deepAAA_0.pth"
+  # max number of epochs
+  max_epochs: 1000
+  # how many iterations between validations
+  validate_after_iters: 20
+  # model with higher eval score is considered better
+  eval_score_higher_is_better: True
+  
+
+loss:
+  # use BCE loss 
+  name: BCEWithLogitsLoss # network + sigmoid
+  
+
+# optimizer configuration
+optimizer:
+  # initial learning rate
+  lr: 0.0001
+  # weight decay
+  weight_decay: 0.00001
+ 
 aaa:
   # batch dimension; if number of GPUs is N > 1, then a batch_size of N * batch_size will automatically be taken for DataParallel
   batch_size: 8
@@ -59,38 +89,6 @@ aaa:
         - name: ToTensor
           expand_dims: false
 
-trainer:
-  # mode train or test 
-  mode: "train"
-  # gpu number 
-  gpu_idx: 1
-  # path to the checkpoint directory
-  checkpoint_dir: "/home/bh/Downloads/pytorch-3dunet-master/data"
-  # path to latest checkpoint; if provided the training will be resumed from that checkpoint
-  resume: null
-  # how many iterations between validations
-  validate_after_iters: 50
-  # how many iterations between tensorboard logging
-  log_after_iters: 200
-  # max number of epochs
-  max_epochs: 1000
-  # max number of iterations
-  max_num_iterations: 30000
-  # model with higher eval score is considered better
-  eval_score_higher_is_better: True
-  # loss function configuration
-  
-loss:
-  # use BCE loss for trainingcmtv
-  name: BCEWithLogitsLoss # network + sigmoid
-  
 
-# optimizer configuration
-optimizer:
-  # initial learning rate
-  lr: 0.0001
-  # weight decay
-  weight_decay: 0.00001
- 
 
 
