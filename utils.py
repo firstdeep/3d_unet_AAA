@@ -339,7 +339,7 @@ def get_aaa_test_loader(config):
     test_datasets = torch.utils.data.Subset(dataset, test_idx)
 
     # when training with volumetric data use batch_size of 1 due to GPU memory constraints
-    return DataLoader(test_datasets, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+    return {'test': DataLoader(test_datasets, batch_size=batch_size, shuffle=False, num_workers=num_workers)}
 
 
 

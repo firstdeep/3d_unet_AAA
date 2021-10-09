@@ -7,16 +7,16 @@ trainer:
   # mode train or test 
   mode: "train"
   # gpu number 
-  gpu_idx: 0
+  gpu_idx: 1
   # path to the checkpoint directory
   checkpoint_dir: "/home/bh/Downloads/pytorch-3dunet-master/data"
   # path to latest checkpoint; if provided the training will be resumed from that checkpoint
-  resume: True
+  resume: False
   save_model_path: "/home/bh/PycharmProjects/3d_pytorch_bh/pretrained/3d_deepAAA_0.pth"
   # max number of epochs
-  max_epochs: 1000
+  max_epochs: 200
   # how many iterations between validations
-  validate_after_iters: 20
+  validate_after_iters: 3
   # model with higher eval score is considered better
   eval_score_higher_is_better: True
   
@@ -35,9 +35,9 @@ optimizer:
  
 aaa:
   # batch dimension; if number of GPUs is N > 1, then a batch_size of N * batch_size will automatically be taken for DataParallel
-  batch_size: 8
+  batch_size: 6
   # how many subprocesses to use for data loading
-  num_workers: 4
+  num_workers: 12
 
   file_path: "/home/bh/PycharmProjects/3d_pytorch_bh/data/"
   prepro_path: "/home/bh/PycharmProjects/3d_pytorch_bh/data/preprocess/" 

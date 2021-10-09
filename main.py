@@ -12,7 +12,7 @@ from preprocessing_input_data import pre_train_data_saving
 
 
 def load_config_yaml(config_file):
-    return yaml.safe_load(open(config_file, 'r'))
+   return yaml.safe_load(open(config_file, 'r'))
 
 
 def main(config):
@@ -23,9 +23,9 @@ def main(config):
     for fold, (train_ids, test_ids) in enumerate(kfold.split(total_subject)):
 
         for index, value in enumerate(test_ids):
-            test_ids[index] = value + 1
+           test_ids[index] = value + 1
         for index, value in enumerate(train_ids):
-            train_ids[index] = value + 1
+           train_ids[index] = value + 1
 
 
         GPU_NUM = config['trainer']['gpu_idx']
@@ -49,16 +49,16 @@ def main(config):
             # If pretrained exist, load model & optimizer
             resume_epoch = 0
             if config['trainer']['resume']:
-                state = torch.load(config['trainer']['save_model_path'], map_location=device)
-                model.load_state_dict(state['model_state_dict'])
-                optimizer.load_state_dict(state['optimizer_state_dict'])
-                resume_epoch = state['epoch']
+               state = torch.load(config['trainer']['save_model_path'], map_location=device)
+               model.load_state_dict(state['model_state_dict'])
+               optimizer.load_state_dict(state['optimizer_state_dict'])
+               resume_epoch = state['epoch']
 
-                # Optimizer device setting
-                for state in optimizer.state.values():
-                    for k, v in state.items():
-                        if isinstance(v, torch.Tensor):
-                            state[k] = v.to(device)
+               # Optimizer device setting
+               for state in optimizer.state.values():
+                   for k, v in state.items():
+                       if isinstance(v, torch.Tensor):
+                           state[k] = v.to(device)
 
             model.to(device)
             # 21.10.07: Change to use less memory
@@ -66,21 +66,22 @@ def main(config):
 
             for epoch in range(0,config['trainer']['max_epochs']):
                 if config['trainer']['resume']:
-                    epoch = resume_epoch
+                   epoch = resume_epoch
+
                 start_time = time.time()
                 model.train()
                 loss_sum = []
 
                 for t in loaders['train']:
-                    input, target, weight = split_training_batch(t, device)
-                    output = model(input)
+                   input, target, weight = split_training_batch(t, device)
+                   output = model(input)
 
-                    loss = loss_criterion(output, target)
-                    loss_sum.append(loss.item())
+                   loss = loss_criterion(output, target)
+                   loss_sum.append(loss.item())
 
-                    optimizer.zero_grad()
-                    loss.backward()
-                    optimizer.step()
+                   optimizer.zero_grad()
+                   loss.backward()
+                   optimizer.step()
 
                 lr_scheduler.step()
 
@@ -88,22 +89,14 @@ def main(config):
                 epoch, sum(loss_sum)/len(loss_sum), lr_scheduler.get_last_lr()[0], ((time.time() - start_time) / 60.)))
 
                 torch.save({'epoch': epoch,
-                            'model_state_dict': model.state_dict(),
-                            'optimizer_state_dict': optimizer.state_dict()
-                            }, './pretrained/3d_deepAAA_%d.pth'%fold)
+                           'model_state_dict': model.state_dict(),
+                           'optimizer_state_dict': optimizer.state_dict()
+                           }, './pretrained/3d_deepAAA_%d.pth'%fold)
 
                 ########################################################################################
                 # validation
                 if epoch % config['trainer']['validate_after_iters'] == 0:
-
-                    print("*******************")
-                    print("   Validating...   ")
-                    print("*******************")
-
-                    # [Delete] For testing
-                    # state = torch.load("/home/bh/PycharmProjects/3d_pytorch_bh/pretrained/test2.pth", map_location='cpu')
-                    # model.load_state_dict(state['model_state_dict'])
-                    # model.to(device)
+                    valid_idx = int(epoch // config['trainer']['validate_after_iters'])
 
                     model.eval()
 
@@ -124,19 +117,18 @@ def main(config):
                         pred = np.array(output_sig.data.cpu())
                         target = np.array(target.data.cpu())
 
-                        overlap, jaccard, dice, fn, fp = eval_segmentation_volume(pred, target)
+                        overlap, jaccard, dice, fn, fp = eval_segmentation_volume(pred, target, input, idx=i, validation_idx=valid_idx)
                         valid_over.append(overlap)
                         valid_jaccard.append(jaccard)
                         valid_dice.append(dice)
                         valid_fn.append(fn)
                         valid_fp.append(fp)
 
-                    print('Validation Evaluation: Overlap: %.4f, Jaccard: %.4f, Dice: %.4f, FN: %.4f, FP: %.4f'
-                          % (np.mean(valid_over), np.mean(valid_jaccard), np.mean(valid_dice), np.mean(valid_fn),
-                             np.mean(valid_fp)))
+                    print('** [INFO] Validation_%d Evaluation: Overlap: %.4f, Jaccard: %.4f, Dice: %.4f, FN: %.4f, FP: %.4f\n'
+                          % (valid_idx, np.mean(valid_over), np.mean(valid_jaccard), np.mean(valid_dice), np.mean(valid_fn), np.mean(valid_fp)))
 
 
-            print("=== Training Done ===")
+            print("=== Epoch iteration done ===")
 
         ########################################################################################
         # Test datasets evaluation
@@ -147,49 +139,26 @@ def main(config):
             print("     FOLD \"%d\"   "%(fold))
             print("*******************")
 
-            loaders = get_aaa_test_loader(config, train_ids)
-
+            # Pretrained model Loading...
             state = torch.load(config['trainer']['save_model_path'], map_location=device)
-
             model.load_state_dict(state['model_state_dict'])
             model.eval()
             model.to(device)
 
-            for t in loaders['train']:
-                for idx in range(len(t[0])):
+            loaders = get_aaa_test_loader(config, train_ids)
 
-                    input = t[0][idx]
-                    label = t[1][idx]
-                    input = input.to(device)
-
-                    output = model(input)
-                    sig = nn.Sigmoid()
-                    output = sig(output)
-
-                    output = output[0,0].detach().cpu().numpy() * 255.
-                    input = input[0,0].detach().cpu().numpy() * 255.
-
-                    output[output > 127.5] = 255
-                    output[output < 127.5] = 0
-
-                    output = output.astype(np.uint8)
-                    input = input.astype(np.uint8)
-
-                    for i in range(0,24):
-                        cv2.imwrite("./result/raw/%d_%d.png"%(count, 24*idx+i), input[0])
-                        cv2.imwrite("./result/mask/%d_%d.png"%(count, 24*idx+i), output[0])
-
-                count = count + 1
-
+            for t in loaders['test']:
+                print("test")
 
 
 
 
 if __name__ =="__main__":
 
-    config_file_path = "./config/train_config.yaml"
-    config = load_config_yaml(config_file_path)
+   config_file_path = "./config/train_config.yaml"
+   config = load_config_yaml(config_file_path)
 
-    # pre_train_data_saving(config=config)
+   # pre_train_data_saving(config=config)
 
-    main(config)
+   main(config)
+
