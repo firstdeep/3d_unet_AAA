@@ -23,31 +23,52 @@ class aaaLoader(torch.utils.data.Dataset):
     def __init__(self,
                  raw_path,
                  mask_path,
-                 file_idx
+                 file_idx,
+                 mode
           ):
 
         self.raw_path = raw_path
         self.mask_path = mask_path
         self.file_idx = file_idx
+        self.mode = mode
 
 
     def __getitem__(self, idx):
+        if self.mode == "train":
 
-        raw = np.load(os.path.join(self.raw_path, idx))
-        mask = np.load(os.path.join(self.mask_path, idx))
+            raw = np.load(os.path.join(self.raw_path, idx))
+            mask = np.load(os.path.join(self.mask_path, idx))
 
-        raw = raw/255.
-        raw = raw.astype(np.float32)
+            raw = raw/255.
+            raw = raw.astype(np.float32)
 
-        mask = approximate_image(mask)
-        mask = mask/255.
-        mask = mask.astype(np.float32)
+            mask = approximate_image(mask)
+            mask = mask/255.
+            mask = mask.astype(np.float32)
 
-        # expand dimension
-        raw = np.expand_dims(raw, axis=0)
-        mask = np.expand_dims(mask, axis=0)
+            # expand dimension
+            raw = np.expand_dims(raw, axis=0)
+            mask = np.expand_dims(mask, axis=0)
 
-        return raw, mask
+            return raw, mask
+
+        if self.mode == "test":
+            raw = np.load(os.path.join(self.raw_path, idx))
+            mask = np.load(os.path.join(self.mask_path, idx))
+
+            raw = raw/255.
+            raw = raw.astype(np.float32)
+
+            mask = approximate_image(mask)
+            mask = mask/255.
+            mask = mask.astype(np.float32)
+
+            # expand dimension
+            raw = np.expand_dims(raw, axis=0)
+            mask = np.expand_dims(mask, axis=0)
+
+            return raw, mask, idx
+
 
 
     @staticmethod

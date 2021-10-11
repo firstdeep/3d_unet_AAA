@@ -9,22 +9,23 @@ trainer:
   # gpu number 
   gpu_idx: 1
   # path to the checkpoint directory
-  checkpoint_dir: "/home/bh/Downloads/pytorch-3dunet-master/data"
+  checkpoint_dir: "/home/bh/AAA/3d_unet_AAA/data"
   # path to latest checkpoint; if provided the training will be resumed from that checkpoint
   resume: False
-  save_model_path: "/home/bh/PycharmProjects/3d_pytorch_bh/pretrained/3d_deepAAA_0.pth"
+  save_model_path: "/home/bh/AAA/3d_unet_AAA/pretrained/"
+  save_model_name: "3d_deepAAA"
   # max number of epochs
-  max_epochs: 200
+  max_epochs: 121
   # how many iterations between validations
-  validate_after_iters: 3
+  validate_after_iters: 10
   # model with higher eval score is considered better
   eval_score_higher_is_better: True
   
 
 loss:
   # use BCE loss 
-  name: BCEWithLogitsLoss # network + sigmoid
-  
+  # name: BCEWithLogitsLoss # network + sigmoid
+  name: dice
 
 # optimizer configuration
 optimizer:
@@ -39,16 +40,19 @@ aaa:
   # how many subprocesses to use for data loading
   num_workers: 12
 
-  file_path: "/home/bh/PycharmProjects/3d_pytorch_bh/data/"
-  prepro_path: "/home/bh/PycharmProjects/3d_pytorch_bh/data/preprocess/" 
+  file_path: "/home/bh/AAA/3d_unet_AAA/data/"
+  prepro_path: "/home/bh/AAA/3d_unet_AAA/data/preprocess/" 
+  validation_path: "/home/bh/AAA/3d_unet_AAA/visualization/"
   raw_path: "raw_256_pos"
   mask_path: "mask_256_pos"
+  raw_test_path: "raw_256_pos_test"
+  mask_test_path: "mask_256_pos_test"
   weight_path: null
 
   # threshold number of slice in datasets
   slice_num: 8
   valid_ratio: 0.1
-  ratio_train_test: 0.25
+
 
   # configuration of the train loader
   train:

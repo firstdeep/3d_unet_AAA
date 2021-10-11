@@ -269,7 +269,6 @@ def get_aaa_train_loader(config, train_sub):
     loaders_config = config['aaa']
 
     batch_size = loaders_config.get('batch_size', 1)
-    batch_size_valid = int(batch_size/2)
     num_workers = loaders_config.get('num_workers', 1)
 
     all_npy_file = natsort.natsorted(os.listdir(os.path.join(loaders_config['prepro_path'], loaders_config['raw_path'])))
@@ -284,9 +283,9 @@ def get_aaa_train_loader(config, train_sub):
     npy_raw_path = os.path.join(loaders_config['prepro_path'], loaders_config['raw_path'])
     npy_mask_path = os.path.join(loaders_config['prepro_path'], loaders_config['mask_path'])
 
-    dataset_train = aaa_data.aaaLoader(raw_path=npy_raw_path, mask_path=npy_mask_path, file_idx=train_input)
+    dataset_train = aaa_data.aaaLoader(raw_path=npy_raw_path, mask_path=npy_mask_path, file_idx=train_input, mode=config['trainer']["mode"])
 
-    dataset_val = aaa_data.aaaLoader(raw_path=npy_raw_path, mask_path=npy_mask_path, file_idx=train_val)
+    dataset_val = aaa_data.aaaLoader(raw_path=npy_raw_path, mask_path=npy_mask_path, file_idx=train_val, mode=config['trainer']["mode"])
 
     train_datasets = torch.utils.data.Subset(dataset_train, train_input)
     val_datasets = torch.utils.data.Subset(dataset_val, train_val)
@@ -295,51 +294,29 @@ def get_aaa_train_loader(config, train_sub):
     return {
         'train': DataLoader(train_datasets, batch_size=batch_size, shuffle=True, num_workers=num_workers),
         # don't shuffle during validation: useful when showing how predictions for a given batch get better over time
-        'val': DataLoader(val_datasets, batch_size=batch_size_valid, shuffle=False, num_workers=num_workers)
+        'val': DataLoader(val_datasets, batch_size=2, shuffle=False, num_workers=num_workers)
     }
 
-def get_aaa_test_loader(config):
-    assert 'loaders' in config, 'Could not find data loaders configuration'
+def get_aaa_test_loader(config, test_sub):
+
     loaders_config = config['aaa']
 
-
-    slice_num = int(loaders_config.get('slice_num',1))
-    ratio = float(loaders_config.get('ratio_train_test',1))
-
+    batch_size = loaders_config.get('batch_size', 1)
     num_workers = loaders_config.get('num_workers', 1)
 
-    batch_size = loaders_config.get('batch_size', 1)
-    if torch.cuda.device_count() > 1 and not config['device'].type == 'cpu':
-        batch_size = batch_size * torch.cuda.device_count()
+    all_npy_file = natsort.natsorted(
+        os.listdir(os.path.join(loaders_config['prepro_path'], loaders_config['raw_test_path'])))
 
-    file_path = loaders_config.get("file_path", 1)
-    raw_path = os.path.join(file_path,str(loaders_config.get("raw_path",1)))
-    mask_path = os.path.join(file_path,str(loaders_config.get("mask_path",1)))
+    test_list = [index for index in all_npy_file if int(index.split("_")[0]) in test_sub]
+    npy_raw_path = os.path.join(loaders_config['prepro_path'], loaders_config['raw_test_path'])
+    npy_mask_path = os.path.join(loaders_config['prepro_path'], loaders_config['mask_test_path'])
 
-    total_subject = list(natsort.natsorted(os.listdir(raw_path)))
-    total_subject = np.zeros((len(total_subject)))
+    dataset_test = aaa_data.aaaLoader(raw_path=npy_raw_path, mask_path=npy_mask_path, file_idx=test_list, mode=config['trainer']["mode"])
 
-    for i in range(0,total_subject.shape[0]):
-        total_subject[i] = len(list(os.listdir(os.path.join(raw_path, str(i+1)))))
-
-    subject_slice_idx = list(np.where(total_subject>=slice_num))[0]
-    subject_len = len(subject_slice_idx)
-    ratio = int(subject_len * ratio)
-
-    subject_list = list(range(0,subject_len))
-    train_idx = subject_list[ratio:]
-    test_idx = [index for index in subject_list if index not in train_idx]
-
-    transformer_config = loaders_config['test']['transformer']
-    slice_train = loaders_config.get("slice_train",1)
-
-    dataset = aaa_data.aaaLoader(file_path=file_path, raw_path=raw_path, mask_path=mask_path, phase='test', total_subject=subject_slice_idx,
-                                                   slice_train=slice_train, transformer_config=transformer_config)
-    print(test_idx)
-    test_datasets = torch.utils.data.Subset(dataset, test_idx)
+    test_datasets = torch.utils.data.Subset(dataset_test, test_list)
 
     # when training with volumetric data use batch_size of 1 due to GPU memory constraints
-    return {'test': DataLoader(test_datasets, batch_size=batch_size, shuffle=False, num_workers=num_workers)}
+    return {'test': DataLoader(test_datasets, batch_size=1, shuffle=False, num_workers=1)}
 
 
 
@@ -487,10 +464,16 @@ def split_training_batch_validation(t, device):
         else:
             return input.to(device)
 
-    t = _move_to_device(t)
+    t_device = _move_to_device(t[:2])
     weight = None
     if len(t) == 2:
-        input, target = t
+        input, target = t_device
+        return input, target
 
-    return input, target
+    elif len(t) == 3:
+        idx = t[2]
+        input, target = t_device
+        return input, target, idx
+
+
 
