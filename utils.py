@@ -282,6 +282,7 @@ def get_aaa_train_loader(config, train_sub):
 
     npy_raw_path = os.path.join(loaders_config['prepro_path'], loaders_config['raw_path'])
     npy_mask_path = os.path.join(loaders_config['prepro_path'], loaders_config['mask_path'])
+    print(npy_raw_path)
 
     dataset_train = aaa_data.aaaLoader(raw_path=npy_raw_path, mask_path=npy_mask_path, file_idx=train_input, mode=config['trainer']["mode"])
 

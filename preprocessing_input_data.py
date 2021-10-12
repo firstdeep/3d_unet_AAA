@@ -16,12 +16,13 @@ from PIL import Image
 ###################################################################
 
 def pre_train_data_saving(config):
-    dst_path = './data/preprocess/256/'
+    dst_path = './data/preprocess/'
     aaa_config = config['aaa']
     mini_slice = aaa_config['slice_num']
 
     raw_path = os.path.join(aaa_config['file_path'], aaa_config['raw_path'])
     mask_path = os.path.join(aaa_config['file_path'], aaa_config['mask_path'])
+    print(raw_path)
 
     subject_list = natsort.natsorted(os.listdir(raw_path))
 
@@ -60,8 +61,8 @@ def pre_train_data_saving(config):
         for idx in range(0,img_depth_3d-mini_slice+1):
             raw_slice = file_raw[idx: idx+mini_slice]
             mask_slice = file_mask[idx: idx+mini_slice]
-            np.save(os.path.join(dst_path,"raw_pos","%s_%d.npy"%(sub_idx, idx)), raw_slice)
-            np.save(os.path.join(dst_path,"mask_pos","%s_%d.npy"%(sub_idx, idx)), mask_slice)
+            np.save(os.path.join(dst_path,"raw_256_50","%s_%d.npy"%(sub_idx, idx)), raw_slice)
+            np.save(os.path.join(dst_path,"mask_256_50","%s_%d.npy"%(sub_idx, idx)), mask_slice)
 
         print("=====")
 
@@ -75,6 +76,7 @@ def pre_test_data_saving(config):
 
     raw_path = os.path.join(aaa_config['file_path'], aaa_config['raw_path'])
     mask_path = os.path.join(aaa_config['file_path'], aaa_config['mask_path'])
+    print(raw_path)
 
     subject_list = natsort.natsorted(os.listdir(raw_path))
 
@@ -116,16 +118,16 @@ def pre_test_data_saving(config):
         for idx in range(0,quotient):
             raw_slice = file_raw[mini_slice*idx: mini_slice*idx+mini_slice]
             mask_slice = file_mask[mini_slice*idx: mini_slice*idx+mini_slice]
-            np.save(os.path.join(dst_path,"raw_256_pos_test","%s_%d.npy"%(sub_idx, idx)), raw_slice)
-            np.save(os.path.join(dst_path,"mask_256_pos_test","%s_%d.npy"%(sub_idx, idx)), mask_slice)
+            np.save(os.path.join(dst_path,"raw_256_50_test","%s_%d.npy"%(sub_idx, idx)), raw_slice)
+            np.save(os.path.join(dst_path,"mask_256_50_test","%s_%d.npy"%(sub_idx, idx)), mask_slice)
             final_idx = idx
 
         if remain!=0:
             final_idx = final_idx+1
             raw_slice = file_raw[-mini_slice:]
             mask_slice = file_mask[-mini_slice:]
-            np.save(os.path.join(dst_path,"raw_256_pos_test","%s_%d.npy"%(sub_idx, final_idx)), raw_slice)
-            np.save(os.path.join(dst_path,"mask_256_pos_test","%s_%d.npy"%(sub_idx, final_idx)), mask_slice)
+            np.save(os.path.join(dst_path,"raw_256_50_test","%s_%d.npy"%(sub_idx, final_idx)), raw_slice)
+            np.save(os.path.join(dst_path,"mask_256_50_test","%s_%d.npy"%(sub_idx, final_idx)), mask_slice)
 
         print("=====")
 
@@ -138,4 +140,5 @@ if __name__ =="__main__":
     print("=== Training Start")
     config_file_path = "./config/train_config.yaml"
     config = load_config_yaml(config_file_path)
+    pre_train_data_saving(config=config)
     pre_test_data_saving(config=config)

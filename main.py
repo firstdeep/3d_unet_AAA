@@ -57,6 +57,7 @@ def main(config):
             if config['trainer']['resume']:
                 path = config['trainer']['save_model_path']
                 file_name = config['trainer']['save_model_name']+"_%d.pth"%fold
+                print("Loading pretrained model: %s" % (os.path.join(path, file_name)))
                 state = torch.load(os.path.join(path, file_name), map_location=device)
                 model.load_state_dict(state['model_state_dict'])
                 optimizer.load_state_dict(state['optimizer_state_dict'])
@@ -105,7 +106,7 @@ def main(config):
                 torch.save({'epoch': epoch,
                            'model_state_dict': model.state_dict(),
                            'optimizer_state_dict': optimizer.state_dict()
-                           }, './pretrained/3d_deepAAA_3d_%d.pth'%fold)
+                           }, './pretrained/3d_deepAAA_70_%d.pth'%fold)
 
                 ########################################################################################
                 # validation

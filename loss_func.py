@@ -15,4 +15,3 @@ class DiceLoss(nn.Module):
         denominator = torch.sum(torch.square(logits) + torch.square(targets), axes)
 
         return 1 - torch.mean((numerator + epsilon) / (denominator + epsilon))
-

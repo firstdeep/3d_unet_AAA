@@ -7,17 +7,17 @@ trainer:
   # mode train or test 
   mode: "train"
   # gpu number 
-  gpu_idx: 1
+  gpu_idx: 0
   # path to the checkpoint directory
   checkpoint_dir: "/home/bh/AAA/3d_unet_AAA/data"
   # path to latest checkpoint; if provided the training will be resumed from that checkpoint
-  resume: False
+  resume: True
   save_model_path: "/home/bh/AAA/3d_unet_AAA/pretrained/"
-  save_model_name: "3d_deepAAA"
+  save_model_name: "3d_deepAAA_all"
   # max number of epochs
   max_epochs: 121
   # how many iterations between validations
-  validate_after_iters: 10
+  validate_after_iters: 20
   # model with higher eval score is considered better
   eval_score_higher_is_better: True
   
@@ -43,8 +43,8 @@ aaa:
   file_path: "/home/bh/AAA/3d_unet_AAA/data/"
   prepro_path: "/home/bh/AAA/3d_unet_AAA/data/preprocess/" 
   validation_path: "/home/bh/AAA/3d_unet_AAA/visualization/"
-  raw_path: "raw_256_pos"
-  mask_path: "mask_256_pos"
+  raw_path: "raw_256"
+  mask_path: "mask_256"
   raw_test_path: "raw_256_pos_test"
   mask_test_path: "mask_256_pos_test"
   weight_path: null
