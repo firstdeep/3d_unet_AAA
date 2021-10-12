@@ -23,6 +23,7 @@ def main(config):
     kfold = KFold(n_splits=4, shuffle=False)
 
     for fold, (train_ids, test_ids) in enumerate(kfold.split(total_subject)):
+        torch.cuda.empty_cache()
 
         for index, value in enumerate(test_ids):
            test_ids[index] = value + 1
@@ -106,7 +107,7 @@ def main(config):
                 torch.save({'epoch': epoch,
                            'model_state_dict': model.state_dict(),
                            'optimizer_state_dict': optimizer.state_dict()
-                           }, './pretrained/3d_deepAAA_70_%d.pth'%fold)
+                           }, './pretrained/3d_deepAAA_50_%d.pth'%fold)
 
                 ########################################################################################
                 # validation
@@ -156,7 +157,9 @@ def main(config):
 
             # subject_depth
             subject_depth = []
-            path = './data/mask_256_pos'
+
+            path = os.path.join(config['aaa']['file_path'], config['aaa']['mask_path'])
+
             folder_idx = natsort.natsorted(os.listdir(path))
             for fidx in folder_idx:
                 file_idx = natsort.natsorted(os.listdir(os.path.join(path, fidx)))
@@ -172,12 +175,6 @@ def main(config):
 
             loaders = get_aaa_test_loader(config, test_ids)
 
-            test_over = []
-            test_jaccard = []
-            test_dice = []
-            test_fn = []
-            test_fp = []
-
             for i, t in enumerate(loaders['test']):
                 input, target, idx = split_training_batch_validation(t, device)
                 # input & output shape: batch*1*8(slice_num)*256*256
@@ -189,17 +186,25 @@ def main(config):
                 pred = np.array(output_sig.data.cpu())
                 target = np.array(target.data.cpu())
 
-                overlap, jaccard, dice, fn, fp = eval_segmentation_volume_test(config, pred, target, input,
-                                                                          file_name=idx[0], sub_depth=subject_depth)
+                eval_segmentation_visualization(config, pred, target, input, file_name=idx[0], sub_depth=subject_depth)
 
-                test_over.append(overlap)
-                test_jaccard.append(jaccard)
-                test_dice.append(dice)
-                test_fn.append(fn)
-                test_fp.append(fp)
+            subj_ol = []
+            subj_ja = []
+            subj_di = []
+            subj_fn = []
+            subj_fp = []
+
+            for subject in test_ids:
+                overlap, jaccard, dice, fn, fp = eval_segmentation_volume_test(config, "./visualization/test_result_mask", str(subject))
+                print(str(subject) + ' %.4f %.4f %.4f %.4f %.4f' % (overlap, jaccard, dice, fn, fp))
+                subj_ol.append(overlap)
+                subj_ja.append(jaccard)
+                subj_di.append(dice)
+                subj_fn.append(fn)
+                subj_fp.append(fp)
 
             print('** [INFO] Overlap: %.4f, Jaccard: %.4f, Dice: %.4f, FN: %.4f, FP: %.4f\n'
-                % (np.mean(test_over), np.mean(test_jaccard), np.mean(test_dice), np.mean(test_fn), np.mean(test_fp)))
+                % (np.mean(subj_ol), np.mean(subj_ja), np.mean(subj_di), np.mean(subj_fn), np.mean(subj_fp)))
 
 
 
