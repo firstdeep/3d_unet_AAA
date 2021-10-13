@@ -94,19 +94,13 @@ def eval_segmentation_volume(config, pred, target, input_img, idx=0, validation_
             cv2.imwrite(os.path.join(valid_path,valid_folder,valid_name), img_all)
             ############################################################################################################
 
-        overlap = intersection / t_sum
-        jaccard = intersection / union
-        dice = 2.0*intersection / (s_sum + t_sum)
-        fn = t_diff_s / t_sum
-        fp = s_diff_t / s_sum
+        # overlap = intersection / t_sum
+        # jaccard = intersection / union
+        # dice = 2.0*intersection / (s_sum + t_sum)
+        # fn = t_diff_s / t_sum
+        # fp = s_diff_t / s_sum
 
-        batch_over.append(overlap)
-        batch_jaccard.append(jaccard)
-        batch_dice.append(dice)
-        batch_fn.append(fn)
-        batch_fp.append(fp)
-
-    return np.mean(batch_over), np.mean(batch_jaccard), np.mean(batch_dice), np.mean(batch_fn), np.mean(batch_fp)
+    return s_sum, t_sum, s_diff_t, t_diff_s, intersection, union
 
 
 def eval_segmentation_volume_test(config, save_path="", subj_id=0):

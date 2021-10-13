@@ -73,10 +73,11 @@ def main(config):
             model.to(device)
             # 21.10.07: Change to use less memory
             loaders = get_aaa_train_loader(config, train_ids)
-
+            epoch_flag = 0
             for epoch in range(0,config['trainer']['max_epochs']):
 
-                if config['trainer']['resume']:
+                if config['trainer']['resume'] and epoch_flag==0:
+                    epoch_flag = epoch_flag + 1
                     epoch = resume_epoch
 
                 start_time = time.time()
@@ -104,12 +105,14 @@ def main(config):
                 print("** [INFO] Epoch \"%d\", Loss = %f & LR = %f & Time = %.2f min" % (
                 epoch, sum(loss_sum)/len(loss_sum), lr_scheduler.get_last_lr()[0], ((time.time() - start_time) / 60.)))
 
-                torch.save({'epoch': epoch,
-                           'model_state_dict': model.state_dict(),
-                           'optimizer_state_dict': optimizer.state_dict()
-                           }, './pretrained/3d_deepAAA_50_%d.pth'%fold)
+                if epoch % 3 == 0:
+                    torch.save({'epoch': epoch,
+                               'model_state_dict': model.state_dict(),
+                               'optimizer_state_dict': optimizer.state_dict()
+                               }, './pretrained/3d_all_bce_epoch%d_%d.pth'%(epoch,fold))
 
                 ########################################################################################
+
                 # validation
                 if epoch % config['trainer']['validate_after_iters'] == 0:
                     valid_idx = int(epoch // config['trainer']['validate_after_iters'])
@@ -122,6 +125,10 @@ def main(config):
                     valid_fn = []
                     valid_fp = []
 
+                    s_sum, t_sum = 0, 0
+                    intersection, union = 0, 0
+                    s_diff_t, t_diff_s = 0, 0
+
                     for i, t in enumerate(loaders['val']):
                         input, target = split_training_batch_validation(t, device)
                         # input & output shape: batch*1*8(slice_num)*256*256
@@ -133,15 +140,22 @@ def main(config):
                         pred = np.array(output_sig.data.cpu())
                         target = np.array(target.data.cpu())
 
-                        overlap, jaccard, dice, fn, fp = eval_segmentation_volume(config, pred, target, input, idx=i, validation_idx=valid_idx)
-                        valid_over.append(overlap)
-                        valid_jaccard.append(jaccard)
-                        valid_dice.append(dice)
-                        valid_fn.append(fn)
-                        valid_fp.append(fp)
+                        s_sum, t_sum, s_diff_t, t_diff_s, intersection, union = eval_segmentation_volume(config, pred, target, input, idx=i, validation_idx=valid_idx)
+                        s_sum += s_sum
+                        t_sum += t_sum
+                        s_diff_t += s_diff_t
+                        t_diff_s += t_diff_s
+                        intersection += intersection
+                        union += union
+
+                    overlap = intersection / t_sum
+                    jaccard = intersection / union
+                    dice = 2.0 * intersection / (s_sum + t_sum)
+                    fn = t_diff_s / t_sum
+                    fp = s_diff_t / s_sum
 
                     print('** [INFO] Validation_%d Evaluation: Overlap: %.4f, Jaccard: %.4f, Dice: %.4f, FN: %.4f, FP: %.4f\n'
-                          % (valid_idx, np.mean(valid_over), np.mean(valid_jaccard), np.mean(valid_dice), np.mean(valid_fn), np.mean(valid_fp)))
+                      % (valid_idx, overlap, jaccard, dice, fn, fp))
 
 
             print("=== Epoch iteration done ===")
@@ -168,6 +182,7 @@ def main(config):
             # Pretrained model Loading...
             path = config['trainer']['save_model_path']
             file_name = config['trainer']['save_model_name'] + "_%d.pth" % fold
+            print("Loading pretrained model: %s" % (os.path.join(path, file_name)))
             state = torch.load(os.path.join(path, file_name), map_location=device)
             model.load_state_dict(state['model_state_dict'])
             model.eval()
@@ -205,8 +220,6 @@ def main(config):
 
             print('** [INFO] Overlap: %.4f, Jaccard: %.4f, Dice: %.4f, FN: %.4f, FP: %.4f\n'
                 % (np.mean(subj_ol), np.mean(subj_ja), np.mean(subj_di), np.mean(subj_fn), np.mean(subj_fp)))
-
-
 
 
 if __name__ =="__main__":
