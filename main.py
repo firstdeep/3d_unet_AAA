@@ -6,6 +6,7 @@ import torch.nn as nn
 import yaml
 import cv2
 import time
+import shutil
 
 from utils import *
 from loss_func import *
@@ -189,6 +190,14 @@ def main(config):
             model.to(device)
 
             loaders = get_aaa_test_loader(config, test_ids)
+
+            valid_path = config['aaa']['validation_path']
+            valid_folder = "test_result"
+            valid_mask_folder = "test_result_mask"
+            if os.path.exists(os.path.join(valid_path, valid_folder)):
+                shutil.rmtree(os.path.join(valid_path, valid_folder))
+                shutil.rmtree(os.path.join(valid_path, valid_mask_folder))
+
 
             for i, t in enumerate(loaders['test']):
                 input, target, idx = split_training_batch_validation(t, device)
