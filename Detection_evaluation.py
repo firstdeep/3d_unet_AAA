@@ -2,6 +2,7 @@ import numpy as np
 import os
 import cv2
 import natsort
+import yaml
 
 
 def load_config_yaml(config_file):
