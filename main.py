@@ -8,6 +8,7 @@ import cv2
 import time
 import shutil
 
+from tqdm import tqdm
 from utils import *
 from loss_func import *
 from evaluation import *
@@ -18,12 +19,28 @@ def load_config_yaml(config_file):
    return yaml.safe_load(open(config_file, 'r'))
 
 
+def initialize_weights(m):
+    classname = m.__class__.__name__
+    # print(classname)
+    if classname.find('Conv3d') != -1:
+        nn.init.kaiming_uniform_(m.weight.data, nonlinearity='relu')
+        if m.bias is not None:
+            nn.init.constant_(m.bias.data, 0)
+
+    elif classname.find('BatchNorm') != -1:
+        nn.init.constant_(m.weight.data, 1)
+        nn.init.constant_(m.bias.data, 0)
+
+
+
 def main(config):
 
     total_subject = list(range(1,61))
     kfold = KFold(n_splits=4, shuffle=False)
 
     for fold, (train_ids, test_ids) in enumerate(kfold.split(total_subject)):
+        if fold!=0:
+            continue
         torch.cuda.empty_cache()
 
         for index, value in enumerate(test_ids):
@@ -37,7 +54,8 @@ def main(config):
 
         model = UNet3D(n_channels=1, n_classes=1)
         # print("Model parameter num: %d"%(count_parameter(model)))
-        # print(model)
+        print(model)
+        model.apply(initialize_weights)
 
         params = [p for p in model.parameters() if p.requires_grad]
         optimizer = torch.optim.RMSprop(params, lr=config['optimizer']['lr'])
@@ -48,6 +66,7 @@ def main(config):
             loss_criterion = DiceLoss()
 
         lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer, gamma=0.99)
+
 
         print("=============================")
         print("========== FOLD %d ==========" % fold)
@@ -75,7 +94,7 @@ def main(config):
             # 21.10.07: Change to use less memory
             loaders = get_aaa_train_loader(config, train_ids)
             epoch_flag = 0
-            for epoch in range(0,config['trainer']['max_epochs']):
+            for epoch in range(0,config['trainer']['max_epochs']+1):
 
                 if config['trainer']['resume'] and epoch_flag==0:
                     epoch_flag = epoch_flag + 1
@@ -85,7 +104,8 @@ def main(config):
                 model.train()
                 loss_sum = []
 
-                for t in loaders['train']:
+                for i, t in tqdm(enumerate(loaders['train']), desc="[Epoch %d]Training..."%(epoch)):
+                    print(" ", end='\r')
                     input, target, weight = split_training_batch(t, device)
                     output = model(input)
 
@@ -106,11 +126,11 @@ def main(config):
                 print("** [INFO] Epoch \"%d\", Loss = %f & LR = %f & Time = %.2f min" % (
                 epoch, sum(loss_sum)/len(loss_sum), lr_scheduler.get_last_lr()[0], ((time.time() - start_time) / 60.)))
 
-                if epoch % 3 == 0:
+                if epoch % 1 == 0:
                     torch.save({'epoch': epoch,
                                'model_state_dict': model.state_dict(),
                                'optimizer_state_dict': optimizer.state_dict()
-                               }, './pretrained/3d_all_bce_epoch%d_%d.pth'%(epoch,fold))
+                               }, './pretrained/3d_bce_0.0001_init_epoch%d_%d.pth'%(epoch,fold))
 
                 ########################################################################################
 
@@ -119,12 +139,6 @@ def main(config):
                     valid_idx = int(epoch // config['trainer']['validate_after_iters'])
 
                     model.eval()
-
-                    valid_over = []
-                    valid_jaccard = []
-                    valid_dice = []
-                    valid_fn = []
-                    valid_fp = []
 
                     s_sum, t_sum = 0, 0
                     intersection, union = 0, 0

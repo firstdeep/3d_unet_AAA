@@ -3,7 +3,7 @@
 import torch.nn.functional as F
 
 from unet_3d_parts import *
-
+import torch.nn as nn
 
 # DeepAAA
 # https://dl.acm.org/doi/10.1007/978-3-030-32245-8_80
@@ -31,6 +31,7 @@ class UNet3D(nn.Module):
         self.final = FinalConv(64, n_classes)
 
 
+
     def forward(self, x):
         x1 = self.down1(x)
         # print(x1.shape)
@@ -52,3 +53,4 @@ class UNet3D(nn.Module):
         # print(logits.shape)
 
         return logits
+

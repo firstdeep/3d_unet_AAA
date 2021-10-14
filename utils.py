@@ -272,21 +272,23 @@ def get_aaa_train_loader(config, train_sub):
     num_workers = loaders_config.get('num_workers', 1)
 
     all_npy_file = natsort.natsorted(os.listdir(os.path.join(loaders_config['prepro_path'], loaders_config['raw_path'])))
+    all_npy_val_file = natsort.natsorted(os.listdir(os.path.join(loaders_config['prepro_path'], loaders_config['raw_test_path'])))
+
+    val = train_sub[0]
+    train_sub = [index for index in train_sub if index!=val]
 
     train_input = [index for index in all_npy_file if int(index.split("_")[0]) in train_sub]
-    total_num = len(train_input)
-    valid_num = int(total_num * loaders_config['valid_ratio'])
-
-    train_val = random.sample(train_input, valid_num)
-    train_input = [index for index in train_input if index not in train_val]
+    train_val = [index for index in all_npy_val_file if int(index.split("_")[0])==val]
 
     npy_raw_path = os.path.join(loaders_config['prepro_path'], loaders_config['raw_path'])
     npy_mask_path = os.path.join(loaders_config['prepro_path'], loaders_config['mask_path'])
     print(npy_raw_path)
 
-    dataset_train = aaa_data.aaaLoader(raw_path=npy_raw_path, mask_path=npy_mask_path, file_idx=train_input, mode=config['trainer']["mode"])
+    npy_raw_val_path = os.path.join(loaders_config['prepro_path'], loaders_config['raw_test_path'])
+    npy_mask_val_path = os.path.join(loaders_config['prepro_path'], loaders_config['mask_test_path'])
 
-    dataset_val = aaa_data.aaaLoader(raw_path=npy_raw_path, mask_path=npy_mask_path, file_idx=train_val, mode=config['trainer']["mode"])
+    dataset_train = aaa_data.aaaLoader(raw_path=npy_raw_path, mask_path=npy_mask_path, file_idx=train_input, mode=config['trainer']["mode"])
+    dataset_val = aaa_data.aaaLoader(raw_path=npy_raw_val_path, mask_path=npy_mask_val_path, file_idx=train_val, mode=config['trainer']["mode"])
 
     train_datasets = torch.utils.data.Subset(dataset_train, train_input)
     val_datasets = torch.utils.data.Subset(dataset_val, train_val)
@@ -295,7 +297,7 @@ def get_aaa_train_loader(config, train_sub):
     return {
         'train': DataLoader(train_datasets, batch_size=batch_size, shuffle=True, num_workers=num_workers),
         # don't shuffle during validation: useful when showing how predictions for a given batch get better over time
-        'val': DataLoader(val_datasets, batch_size=2, shuffle=False, num_workers=num_workers)
+        'val': DataLoader(val_datasets, batch_size=1, shuffle=False, num_workers=num_workers)
     }
 
 def get_aaa_test_loader(config, test_sub):
