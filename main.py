@@ -54,15 +54,18 @@ def main(config):
 
         model = UNet3D(n_channels=1, n_classes=1)
         # print("Model parameter num: %d"%(count_parameter(model)))
-        print(model)
+        # print(model)
         model.apply(initialize_weights)
 
         params = [p for p in model.parameters() if p.requires_grad]
         optimizer = torch.optim.RMSprop(params, lr=config['optimizer']['lr'])
+        print("**Learning Rate: %f"%config['optimizer']['lr'])
 
         if config['loss']['name'] =="BCEWithLogitsLoss":
+            print("BCEWithLogitsLoss")
             loss_criterion = nn.BCEWithLogitsLoss()
         elif config['loss']['name'] == "dice":
+            print("** Dice loss **")
             loss_criterion = DiceLoss()
 
         lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer, gamma=0.99)
@@ -130,7 +133,7 @@ def main(config):
                     torch.save({'epoch': epoch,
                                'model_state_dict': model.state_dict(),
                                'optimizer_state_dict': optimizer.state_dict()
-                               }, './pretrained/3d_bce_0.0001_init_epoch%d_%d.pth'%(epoch,fold))
+                               }, './pretrained/3d_dice2_epoch%d_%d.pth'%(epoch,fold))
 
                 ########################################################################################
 
