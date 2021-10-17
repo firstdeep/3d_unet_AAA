@@ -56,13 +56,16 @@ def pre_train_data_saving(config):
 
         img_depth_3d = file_raw.shape[0]
         print("* img depth = %d"%img_depth_3d)
+        if not os.path.exists(os.path.join(dst_path,aaa_config['raw_path'])):
+            os.mkdir(os.path.join(dst_path,aaa_config['raw_path']))
+            os.mkdir(os.path.join(dst_path,aaa_config['mask_path']))
 
         # saving slice image of .npy format
         for idx in range(0,img_depth_3d-mini_slice+1):
             raw_slice = file_raw[idx: idx+mini_slice]
             mask_slice = file_mask[idx: idx+mini_slice]
-            np.save(os.path.join(dst_path,"raw_256_50","%s_%d.npy"%(sub_idx, idx)), raw_slice)
-            np.save(os.path.join(dst_path,"mask_256_50","%s_%d.npy"%(sub_idx, idx)), mask_slice)
+            np.save(os.path.join(dst_path,aaa_config['raw_path'], "%s_%d.npy"%(sub_idx, idx)), raw_slice)
+            np.save(os.path.join(dst_path,aaa_config['mask_path'], "%s_%d.npy"%(sub_idx, idx)), mask_slice)
 
         print("=====")
 
@@ -115,11 +118,15 @@ def pre_test_data_saving(config):
         remain = img_depth_3d % mini_slice
         final_idx = 0
         # saving slice image of .npy format
+        if not os.path.exists(os.path.join(dst_path,aaa_config['raw_test_path'])):
+            os.mkdir(os.path.join(dst_path,aaa_config['raw_test_path']))
+            os.mkdir(os.path.join(dst_path,aaa_config['mask_test_path']))
+
         for idx in range(0,quotient):
             raw_slice = file_raw[mini_slice*idx: mini_slice*idx+mini_slice]
             mask_slice = file_mask[mini_slice*idx: mini_slice*idx+mini_slice]
-            np.save(os.path.join(dst_path,"raw_256_50_test","%s_%d.npy"%(sub_idx, idx)), raw_slice)
-            np.save(os.path.join(dst_path,"mask_256_50_test","%s_%d.npy"%(sub_idx, idx)), mask_slice)
+            np.save(os.path.join(dst_path,aaa_config['raw_test_path'],"%s_%d.npy"%(sub_idx, idx)), raw_slice)
+            np.save(os.path.join(dst_path,aaa_config['mask_test_path'],"%s_%d.npy"%(sub_idx, idx)), mask_slice)
             final_idx = idx
 
         if remain!=0:
@@ -137,6 +144,7 @@ def load_config_yaml(config_file):
 
 
 if __name__ =="__main__":
+    print("re")
     print("=== Training Start")
     config_file_path = "./config/train_config.yaml"
     config = load_config_yaml(config_file_path)
