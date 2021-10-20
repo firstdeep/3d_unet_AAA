@@ -13,7 +13,7 @@ def make_gt(path, subject_np):
     mask_path = path
 
     data_arr = np.zeros((len(subject_np), 3))  # 0: number of mask images about subject, 1: mask start point, 2. mask finish point
-
+    ratio_pos = []
     subject_idx = subject_np
 
     count = 0  # mask count
@@ -47,6 +47,7 @@ def make_gt(path, subject_np):
         data_arr[(sub_idx - 1), 1] = file_pos_list[0]
         data_arr[(sub_idx - 1), 2] = file_pos_list[-1]
         total_pos_num_list.append(count)
+        ratio_pos.append(((file_pos_list[-1]-file_pos_list[0]+1)/total_count)*100)
 
         count = 0
         total_count = 0
@@ -57,6 +58,8 @@ def make_gt(path, subject_np):
     print(data_arr)
     print(total_pos_num_list)
     print(sum(total_pos_num_list))
+    print(ratio_pos)
+    print(sum(ratio_pos)/len(ratio_pos))
     print("==== Done ====")
 
 def make_pred(path, subject_np):

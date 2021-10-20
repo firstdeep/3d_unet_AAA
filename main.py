@@ -58,8 +58,8 @@ def main(config):
         model.apply(initialize_weights)
 
         params = [p for p in model.parameters() if p.requires_grad]
-        # optimizer = torch.optim.RMSprop(params, lr=config['optimizer']['lr'])
-        optimizer = torch.optim.SGD(params, lr=config['optimizer']['lr'])
+        optimizer = torch.optim.RMSprop(params, lr=config['optimizer']['lr'])
+        # optimizer = torch.optim.SGD(params, lr=config['optimizer']['lr'])
         print("**Learning Rate: %f"%config['optimizer']['lr'])
 
         if config['loss']['name'] =="BCEWithLogitsLoss":
@@ -67,8 +67,8 @@ def main(config):
             loss_criterion = nn.BCEWithLogitsLoss()
         elif config['loss']['name'] == "dice":
             print("** Dice loss **")
-            # loss_criterion = DiceLoss()
-            loss_criterion = GDiceLoss()
+            loss_criterion = DiceLoss()
+            # loss_criterion = GDiceLoss()
 
 
         lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer, gamma=0.99)
@@ -138,7 +138,7 @@ def main(config):
                     torch.save({'epoch': epoch,
                                'model_state_dict': model.state_dict(),
                                'optimizer_state_dict': optimizer.state_dict()
-                               }, './pretrained/3d_gdl_sgd_epoch%d_%d.pth'%(epoch,fold))
+                               }, './pretrained/50_epoch%d_%d.pth'%(epoch,fold))
 
                 ########################################################################################
 

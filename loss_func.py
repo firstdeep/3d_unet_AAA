@@ -17,7 +17,6 @@ class DiceLoss(nn.Module):
 
         return 1 - torch.mean((numerator + epsilon) / (denominator + epsilon))
 
-
 class GDiceLoss(nn.Module):
     def __init__(self, apply_nonlin=None, smooth=1e-5):
         """

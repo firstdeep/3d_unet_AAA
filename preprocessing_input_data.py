@@ -133,8 +133,8 @@ def pre_test_data_saving(config):
             final_idx = final_idx+1
             raw_slice = file_raw[-mini_slice:]
             mask_slice = file_mask[-mini_slice:]
-            np.save(os.path.join(dst_path,"raw_256_50_test","%s_%d.npy"%(sub_idx, final_idx)), raw_slice)
-            np.save(os.path.join(dst_path,"mask_256_50_test","%s_%d.npy"%(sub_idx, final_idx)), mask_slice)
+            np.save(os.path.join(dst_path,aaa_config['raw_test_path'],"%s_%d.npy"%(sub_idx, final_idx)), raw_slice)
+            np.save(os.path.join(dst_path,aaa_config['mask_test_path'],"%s_%d.npy"%(sub_idx, final_idx)), mask_slice)
 
         print("=====")
 
@@ -144,7 +144,6 @@ def load_config_yaml(config_file):
 
 
 if __name__ =="__main__":
-    print("re")
     print("=== Training Start")
     config_file_path = "./config/train_config.yaml"
     config = load_config_yaml(config_file_path)
