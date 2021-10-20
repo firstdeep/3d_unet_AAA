@@ -6,16 +6,19 @@ class DiceLoss(nn.Module):
     def __init__(self):
         super(DiceLoss, self).__init__()
 
-    def forward(self, logits, targets):
-
-        epsilon = 1.
+    def forward(self, net_output, gt):
+        epsilon = 1e-5
         # axes = tuple(range(3, len(logits.shape) - 1))
-        axes = tuple(range(2, len(logits.shape))) # 3D
-        # axes = tuple(range(3, len(logits.shape))) # 2D
-        numerator = 2 * torch.sum(logits * targets, axes)
-        denominator = torch.sum(torch.square(logits) + torch.square(targets), axes)
+        axes = tuple(range(2, len(net_output.shape))) # 3D
+        numerator = torch.sum(net_output * gt, axes)
+        # print(numerator)
+        denominator = torch.sum(net_output, axes) + torch.sum(gt, axes)
+        # print(denominator)
+        divided = 1 - ((2*numerator + epsilon) / (denominator + epsilon))
 
-        return 1 - torch.mean((numerator + epsilon) / (denominator + epsilon))
+        dice = divided.mean()
+
+        return dice
 
 class GDiceLoss(nn.Module):
     def __init__(self, apply_nonlin=None, smooth=1e-5):
@@ -52,7 +55,7 @@ class GDiceLoss(nn.Module):
             net_output = self.apply_nonlin(net_output)
 
         # copy from https://github.com/LIVIAETS/surface-loss/blob/108bd9892adca476e6cdf424124bc6268707498e/losses.py#L29
-        w: torch.Tensor = 1 / (einsum("bcxyz->bc", y_onehot).type(torch.float32) + 1e-10) ** 2
+        w: torch.Tensor = (einsum("bcxyz->bc", y_onehot).type(torch.float32) + 1e-10) ** 2
         intersection: torch.Tensor = w * einsum("bcxyz, bcxyz->bc", net_output, y_onehot)
         union: torch.Tensor = w * (einsum("bcxyz->bc", net_output) + einsum("bcxyz->bc", y_onehot))
         divided: torch.Tensor = 1 - (2 * einsum("bc->b", intersection) + self.smooth) / (
