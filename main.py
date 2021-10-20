@@ -53,13 +53,12 @@ def main(config):
         device = torch.device(f'cuda:{GPU_NUM}') if torch.cuda.is_available() else torch.device('cpu')
 
         model = UNet3D(n_channels=1, n_classes=1)
+        model.apply(initialize_weights)
         # print("Model parameter num: %d"%(count_parameter(model)))
         # print(model)
-        model.apply(initialize_weights)
 
         params = [p for p in model.parameters() if p.requires_grad]
         optimizer = torch.optim.RMSprop(params, lr=config['optimizer']['lr'])
-        # optimizer = torch.optim.SGD(params, lr=config['optimizer']['lr'])
         print("**Learning Rate: %f"%config['optimizer']['lr'])
 
         if config['loss']['name'] =="BCEWithLogitsLoss":
@@ -67,7 +66,9 @@ def main(config):
             loss_criterion = nn.BCEWithLogitsLoss()
         elif config['loss']['name'] == "dice":
             print("** Dice loss **")
-            loss_criterion = DiceLoss()
+            # loss_criterion = DiceLoss()
+            loss_criterion = DiceLoss_normal()
+            # loss_criterion = DiceLoss_normal_nosmooth()
             # loss_criterion = GDiceLoss()
 
 
@@ -117,10 +118,10 @@ def main(config):
 
                     if config['loss']['name'] == "BCEWithLogitsLoss":
                         loss = loss_criterion(output, target)
+
                     elif config['loss']['name'] == "dice":
                         sig = nn.Sigmoid()
                         loss = loss_criterion(sig(output), target)
-
 
                     loss_sum.append(loss.item())
 
@@ -130,7 +131,7 @@ def main(config):
                     optimizer.step()
 
                 lr_scheduler.step()
-
+                # print(loss_sum)
                 print("** [INFO] Epoch \"%d\", Loss = %f & LR = %f & Time = %.2f min" % (
                 epoch, sum(loss_sum)/len(loss_sum), lr_scheduler.get_last_lr()[0], ((time.time() - start_time) / 60.)))
 
@@ -138,7 +139,7 @@ def main(config):
                     torch.save({'epoch': epoch,
                                'model_state_dict': model.state_dict(),
                                'optimizer_state_dict': optimizer.state_dict()
-                               }, './pretrained/50_epoch%d_%d.pth'%(epoch,fold))
+                               }, './pretrained/smooth_epoch%d_%d.pth'%(epoch,fold))
 
                 ########################################################################################
 
