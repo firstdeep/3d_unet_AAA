@@ -87,7 +87,7 @@ def eval_segmentation_volume(config, pred, target, input_img, idx=0, validation_
 
             # Save image
             valid_path = config['aaa']['validation_path']
-            valid_folder = config['aaa']['raw_path']+"_validation_%d"%validation_idx
+            valid_folder = config['trainer']['save_valid_name']+"_validation_%d"%validation_idx
             if not os.path.exists(os.path.join(valid_path, valid_folder)):
                 os.mkdir(os.path.join(valid_path, valid_folder))
             valid_name = "val_%d_batch_%d_slice_%d.png"%(idx, batch, slice)

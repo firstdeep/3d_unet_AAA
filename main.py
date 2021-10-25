@@ -66,10 +66,9 @@ def main(config):
             loss_criterion = nn.BCEWithLogitsLoss()
         elif config['loss']['name'] == "dice":
             print("** Dice loss **")
-            # loss_criterion = DiceLoss()
-            loss_criterion = DiceLoss_normal()
-            # loss_criterion = DiceLoss_normal_nosmooth()
-            # loss_criterion = GDiceLoss()
+            loss_criterion = DiceLoss()
+            # loss_criterion = DiceLoss_bh()
+
 
 
         lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer, gamma=0.99)
@@ -139,7 +138,7 @@ def main(config):
                     torch.save({'epoch': epoch,
                                'model_state_dict': model.state_dict(),
                                'optimizer_state_dict': optimizer.state_dict()
-                               }, './pretrained/smooth_epoch%d_%d.pth'%(epoch,fold))
+                               }, './pretrained/dice_re_epoch%d_%d.pth'%(epoch,fold))
 
                 ########################################################################################
 

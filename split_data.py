@@ -8,16 +8,16 @@ if __name__ =="__main__":
     depth_list = []
     all_length = []
 
-    pos_path = "/home/bh/PycharmProjects/3d_pytorch_bh/data/raw_256_pos/"
+    pos_path = "/home/bh/AAA/3d_unet_AAA/data/raw_256_pos/"
 
-    all_path = "/home/bh/PycharmProjects/3d_pytorch_bh/data/mask_256/"
-    all_raw_path = "/home/bh/PycharmProjects/3d_pytorch_bh/data/raw_256/"
+    all_path = "/home/bh/AAA/3d_unet_AAA/data/mask_256/"
+    all_raw_path = "/home/bh/AAA/3d_unet_AAA/data/raw_256/"
     subj_list = list(natsort.natsorted(os.listdir(pos_path)))
 
-    dst_mask_path = "/home/bh/PycharmProjects/3d_pytorch_bh/data/mask_256_70/"
-    dst_raw_path = "/home/bh/PycharmProjects/3d_pytorch_bh/data/raw_256_70/"
+    dst_mask_path = "/home/bh/AAA/3d_unet_AAA/data/mask_256_40/"
+    dst_raw_path = "/home/bh/AAA/3d_unet_AAA/data/raw_256_40/"
 
-    percentage = 0.7
+    percentage = 0.4
 
     for subj_idx in subj_list:
         file_list = list(natsort.natsorted(os.listdir(os.path.join(pos_path, subj_idx))))
