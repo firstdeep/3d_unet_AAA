@@ -67,8 +67,6 @@ def main(config):
         elif config['loss']['name'] == "dice":
             print("** Dice loss **")
             loss_criterion = DiceLoss()
-            # loss_criterion = DiceLoss_bh()
-
 
 
         lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer, gamma=0.99)
@@ -138,7 +136,7 @@ def main(config):
                     torch.save({'epoch': epoch,
                                'model_state_dict': model.state_dict(),
                                'optimizer_state_dict': optimizer.state_dict()
-                               }, './pretrained/dice_re_epoch%d_%d.pth'%(epoch,fold))
+                               }, './pretrained/dice_normal_epoch%d_%d.pth'%(epoch,fold))
 
                 ########################################################################################
 

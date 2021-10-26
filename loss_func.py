@@ -7,21 +7,24 @@ class DiceLoss(nn.Module):
         super(DiceLoss, self).__init__()
 
     def forward(self, net_output, gt):
-        smooth = 1e-5
+        smooth = 1
 
         axes = tuple(range(2, len(net_output.shape))) # 3D
-        numerator = torch.sum(net_output * gt, (4,3,2))
-        denominator = torch.sum(net_output, (4,3,2)) + torch.sum(gt, (4,3,2))
-        dice = 1 - (2 * torch.sum(numerator, dim=1) + smooth) / (torch.sum(denominator, dim=1) + smooth)
-        dc = dice.mean()
+        # numerator = torch.sum(net_output * gt, (4,3,2))
+        # denominator = torch.sum(net_output, (4,3,2)) + torch.sum(gt, (4,3,2))
+        # dice = torch.mean((2 * numerator + smooth) / (denominator + smooth))
+        # dc = 1-dice
 
-        # axes = tuple(range(2, len(net_output.shape))) # 3D
         # numerator = torch.sum(net_output * gt, axes)
         # denominator = torch.sum(net_output, axes) + torch.sum(gt, axes)
-        # dice = torch.mean((2 * numerator) / (denominator))
-        # dice = 1-dice
+        # dice = 1 - (2 * numerator + smooth) / (denominator + smooth)
+        # dc = dice.mean()
 
-        return dc
+        numerator = torch.sum(net_output * gt, axes)
+        denominator = torch.sum(net_output, axes) + torch.sum(gt, axes)
+        dice = torch.mean((2 * numerator+smooth) / (denominator+smooth))
+
+        return 1-dice
 
 
 class DiceLoss_bh(nn.Module):
