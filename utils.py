@@ -265,17 +265,20 @@ def get_slice_builder(raws, labels, weight_maps, config):
     return slice_builder_cls(raws, labels, weight_maps, **config)
 
 
-def get_aaa_train_loader(config, train_sub):
+def get_aaa_train_loader(config, train_sub, transform=None):
     loaders_config = config['aaa']
 
     batch_size = loaders_config.get('batch_size', 1)
     num_workers = loaders_config.get('num_workers', 1)
 
     all_npy_file = natsort.natsorted(os.listdir(os.path.join(loaders_config['prepro_path'], loaders_config['raw_path'])))
-    all_npy_val_file = natsort.natsorted(os.listdir(os.path.join(loaders_config['prepro_path'], loaders_config['raw_test_path'])))
+    all_npy_val_file = natsort.natsorted(os.listdir(os.path.join(loaders_config['prepro_path'], loaders_config['raw_path'])))
 
     val = train_sub[0]
-    train_sub = [index for index in train_sub if index!=val]
+    if config['trainer']['validation']:
+        train_sub = [index for index in train_sub if index!=val]
+    else:
+        train_sub = [index for index in train_sub]
 
     train_input = [index for index in all_npy_file if int(index.split("_")[0]) in train_sub]
     train_val = [index for index in all_npy_val_file if int(index.split("_")[0])==val]
@@ -283,15 +286,18 @@ def get_aaa_train_loader(config, train_sub):
     npy_raw_path = os.path.join(loaders_config['prepro_path'], loaders_config['raw_path'])
     npy_mask_path = os.path.join(loaders_config['prepro_path'], loaders_config['mask_path'])
     print(npy_raw_path)
+    print(npy_mask_path)
 
     npy_raw_val_path = os.path.join(loaders_config['prepro_path'], loaders_config['raw_test_path'])
     npy_mask_val_path = os.path.join(loaders_config['prepro_path'], loaders_config['mask_test_path'])
 
-    dataset_train = aaa_data.aaaLoader(raw_path=npy_raw_path, mask_path=npy_mask_path, file_idx=train_input, mode=config['trainer']["mode"])
+    dataset_train = aaa_data.aaaLoader(raw_path=npy_raw_path, mask_path=npy_mask_path, file_idx=train_input, mode=config['trainer']["mode"], transform=transform)
     dataset_val = aaa_data.aaaLoader(raw_path=npy_raw_val_path, mask_path=npy_mask_val_path, file_idx=train_val, mode=config['trainer']["mode"])
 
     train_datasets = torch.utils.data.Subset(dataset_train, train_input)
     val_datasets = torch.utils.data.Subset(dataset_val, train_val)
+
+    train_datasets.dataset.transform = transform
 
     # when training with volumetric data use batch_size of 1 due to GPU memory constraints
     return {

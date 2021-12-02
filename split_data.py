@@ -8,20 +8,25 @@ if __name__ =="__main__":
     depth_list = []
     all_length = []
 
-    pos_path = "/home/bh/PycharmProjects/3d_pytorch_bh/data/raw_256_pos/"
+    pos_path = "/home/bh/AAA/3d_unet_AAA/data/raw_256_pos/"
 
-    all_path = "/home/bh/PycharmProjects/3d_pytorch_bh/data/mask_256/"
-    all_raw_path = "/home/bh/PycharmProjects/3d_pytorch_bh/data/raw_256/"
-    subj_list = list(natsort.natsorted(os.listdir(pos_path)))
+    all_path = "/home/bh/AAA/3d_unet_AAA/data_val/blood/"
+    all_raw_path = "/home/bh/AAA/3d_unet_AAA/data_val/rawin/"
+    subj_list = list(natsort.natsorted(os.listdir(all_raw_path)))
 
-    dst_mask_path = "/home/bh/PycharmProjects/3d_pytorch_bh/data/mask_256_70/"
-    dst_raw_path = "/home/bh/PycharmProjects/3d_pytorch_bh/data/raw_256_70/"
+    dst_mask_path = "/home/bh/AAA/3d_unet_AAA/data_val/blood_pos/"
+    dst_raw_path = "/home/bh/AAA/3d_unet_AAA/data_val/rawin_pos/"
 
-    percentage = 0.7
+    # percentage = 0.4
+    percentage = 1
 
     for subj_idx in subj_list:
-        file_list = list(natsort.natsorted(os.listdir(os.path.join(pos_path, subj_idx))))
         all_list = list(natsort.natsorted(os.listdir(os.path.join(all_path, str(subj_idx)))))
+        file_list = []
+        for file_idx in all_list:
+            img = cv2.imread(os.path.join(all_path, subj_idx, file_idx), cv2.IMREAD_GRAYSCALE)
+            if len(np.unique(img)) == 2:
+                file_list.append(file_idx)
         depth_list.append(len(file_list))
         all_length.append(len(all_list))
 
@@ -46,7 +51,7 @@ if __name__ =="__main__":
     side_list = (subj_percent_list - depth_list) / 2
     side_list = np.array(side_list).astype(np.uint32)
 
-    start_finish_list = np.zeros((60,2))
+    start_finish_list = np.zeros((54,2))
 
     for subj_idx in subj_list:
 
@@ -108,7 +113,7 @@ if __name__ =="__main__":
 
 
         for file_idx in file_list:
-            if int(subj_idx) == 50:
+            if int(subj_idx) == 44:
                 if int(file_idx.split(".")[0]) >= start_finish_list[int(subj_idx)-1,0]:
 
                     copyfile(os.path.join(all_raw_path, str(subj_idx), file_idx),

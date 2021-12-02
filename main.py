@@ -14,6 +14,7 @@ from loss_func import *
 from evaluation import *
 from preprocessing_input_data import pre_train_data_saving, pre_test_data_saving
 
+import volumentations as vol
 
 def load_config_yaml(config_file):
    return yaml.safe_load(open(config_file, 'r'))
@@ -35,7 +36,7 @@ def initialize_weights(m):
 
 def main(config):
 
-    total_subject = list(range(1,61))
+    total_subject = list(range(1,54))
     kfold = KFold(n_splits=4, shuffle=False)
 
     for fold, (train_ids, test_ids) in enumerate(kfold.split(total_subject)):
@@ -54,23 +55,20 @@ def main(config):
 
         model = UNet3D(n_channels=1, n_classes=1)
         model.apply(initialize_weights)
-        # print("Model parameter num: %d"%(count_parameter(model)))
-        # print(model)
 
         params = [p for p in model.parameters() if p.requires_grad]
         optimizer = torch.optim.RMSprop(params, lr=config['optimizer']['lr'])
         print("**Learning Rate: %f"%config['optimizer']['lr'])
+        lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer, gamma=0.99)
 
         if config['loss']['name'] =="BCEWithLogitsLoss":
             print("BCEWithLogitsLoss")
             loss_criterion = nn.BCEWithLogitsLoss()
         elif config['loss']['name'] == "dice":
             print("** Dice loss **")
+            # loss_criterion = DiceLoss_bh()
             loss_criterion = DiceLoss()
-
-
-        lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer, gamma=0.99)
-
+            print(loss_criterion)
 
         print("=============================")
         print("========== FOLD %d ==========" % fold)
@@ -96,13 +94,20 @@ def main(config):
 
             model.to(device)
             # 21.10.07: Change to use less memory
-            loaders = get_aaa_train_loader(config, train_ids)
-            epoch_flag = 0
-            for epoch in range(0,config['trainer']['max_epochs']+1):
 
-                if config['trainer']['resume'] and epoch_flag==0:
-                    epoch_flag = epoch_flag + 1
-                    epoch = resume_epoch
+            if config['aaa']['transform']:
+                train_transform = vol.Compose([
+                    vol.RotatePseudo2D(axes=(0,1), limit=(-10,10), interpolation=1)
+                    # ,vol.ElasticTransformPseudo2D(alpha=1, sigma=10, alpha_affine=10)
+                ])
+            else: train_transform = None
+
+            loaders = get_aaa_train_loader(config, train_ids, transform=train_transform)
+
+            if not config['trainer']['resume']:
+                resume_epoch = 0
+
+            for epoch in range(resume_epoch,config['trainer']['max_epochs']+1):
 
                 start_time = time.time()
                 model.train()
@@ -132,52 +137,54 @@ def main(config):
                 print("** [INFO] Epoch \"%d\", Loss = %f & LR = %f & Time = %.2f min" % (
                 epoch, sum(loss_sum)/len(loss_sum), lr_scheduler.get_last_lr()[0], ((time.time() - start_time) / 60.)))
 
-                if epoch % 1 == 0:
+                if epoch % 10 == 0:
+                    file_name = config['trainer']['save_valid_name']
                     torch.save({'epoch': epoch,
                                'model_state_dict': model.state_dict(),
                                'optimizer_state_dict': optimizer.state_dict()
-                               }, './pretrained/dice_normal_epoch%d_%d.pth'%(epoch,fold))
+                               }, './pretrained/%s_epoch%d_%d.pth'%(file_name,epoch,fold))
 
                 ########################################################################################
 
                 # validation
-                if epoch % config['trainer']['validate_after_iters'] == 0:
-                    valid_idx = int(epoch // config['trainer']['validate_after_iters'])
+                if config['trainer']['validation']:
 
-                    model.eval()
+                    if epoch % config['trainer']['validate_after_iters'] == 0:
+                        valid_idx = int(epoch // config['trainer']['validate_after_iters'])
 
-                    s_sum, t_sum = 0, 0
-                    intersection, union = 0, 0
-                    s_diff_t, t_diff_s = 0, 0
+                        model.eval()
 
-                    for i, t in enumerate(loaders['val']):
-                        input, target = split_training_batch_validation(t, device)
-                        # input & output shape: batch*1*8(slice_num)*256*256
-                        output = model(input)
+                        s_sum, t_sum = 0, 0
+                        intersection, union = 0, 0
+                        s_diff_t, t_diff_s = 0, 0
 
-                        sig = nn.Sigmoid()
-                        output_sig = sig(output)
+                        for i, t in enumerate(loaders['val']):
+                            input, target = split_training_batch_validation(t, device)
+                            # input & output shape: batch*1*8(slice_num)*256*256
+                            output = model(input)
 
-                        pred = np.array(output_sig.data.cpu())
-                        target = np.array(target.data.cpu())
+                            sig = nn.Sigmoid()
+                            output_sig = sig(output)
 
-                        s_sum, t_sum, s_diff_t, t_diff_s, intersection, union = eval_segmentation_volume(config, pred, target, input, idx=i, validation_idx=valid_idx)
-                        s_sum += s_sum
-                        t_sum += t_sum
-                        s_diff_t += s_diff_t
-                        t_diff_s += t_diff_s
-                        intersection += intersection
-                        union += union
+                            pred = np.array(output_sig.data.cpu())
+                            target = np.array(target.data.cpu())
 
-                    overlap = intersection / t_sum
-                    jaccard = intersection / union
-                    dice = 2.0 * intersection / (s_sum + t_sum)
-                    fn = t_diff_s / t_sum
-                    fp = s_diff_t / s_sum
+                            s_sum, t_sum, s_diff_t, t_diff_s, intersection, union = eval_segmentation_volume(config, pred, target, input, idx=i, validation_idx=valid_idx)
+                            s_sum += s_sum
+                            t_sum += t_sum
+                            s_diff_t += s_diff_t
+                            t_diff_s += t_diff_s
+                            intersection += intersection
+                            union += union
 
-                    print('** [INFO] Validation_%d Evaluation: Overlap: %.4f, Jaccard: %.4f, Dice: %.4f, FN: %.4f, FP: %.4f\n'
-                      % (valid_idx, overlap, jaccard, dice, fn, fp))
+                        overlap = intersection / t_sum
+                        jaccard = intersection / union
+                        dice = 2.0 * intersection / (s_sum + t_sum)
+                        fn = t_diff_s / t_sum
+                        fp = s_diff_t / s_sum
 
+                        print('** [INFO] Validation_%d Evaluation: Overlap: %.4f, Jaccard: %.4f, Dice: %.4f, FN: %.4f, FP: %.4f\n'
+                          % (valid_idx, overlap, jaccard, dice, fn, fp))
 
             print("=== Epoch iteration done ===")
 
@@ -246,7 +253,11 @@ def main(config):
                 subj_di.append(dice)
                 subj_fn.append(fn)
                 subj_fp.append(fp)
-
+            # del subj_ol[5:6]
+            # del subj_ja[5:6]
+            # del subj_di[5:6]
+            # del subj_fn[5:6]
+            # del subj_fp[5:6]
             print('** [INFO] Overlap: %.4f, Jaccard: %.4f, Dice: %.4f, FN: %.4f, FP: %.4f\n'
                 % (np.mean(subj_ol), np.mean(subj_ja), np.mean(subj_di), np.mean(subj_fn), np.mean(subj_fp)))
 

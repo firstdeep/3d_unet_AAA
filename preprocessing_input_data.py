@@ -14,9 +14,10 @@ from PIL import Image
 # Fixed number = 8 because 8 is the smallest data
 
 ###################################################################
+dst_path = './data_val/preprocess/'
 
 def pre_train_data_saving(config):
-    dst_path = './data/preprocess/'
+
     aaa_config = config['aaa']
     mini_slice = aaa_config['slice_num']
 
@@ -73,7 +74,6 @@ def pre_train_data_saving(config):
 # For testing
 # Subject_num.npy
 def pre_test_data_saving(config):
-    dst_path = './data/preprocess/'
     aaa_config = config['aaa']
     mini_slice = aaa_config['slice_num']
 

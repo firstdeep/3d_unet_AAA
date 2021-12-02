@@ -2,29 +2,21 @@ import torch
 import torch.nn as nn
 from torch import einsum
 
+
 class DiceLoss(nn.Module):
     def __init__(self):
         super(DiceLoss, self).__init__()
 
     def forward(self, net_output, gt):
-        smooth = 1
+        smooth = 1e-5
 
         axes = tuple(range(2, len(net_output.shape))) # 3D
-        # numerator = torch.sum(net_output * gt, (4,3,2))
-        # denominator = torch.sum(net_output, (4,3,2)) + torch.sum(gt, (4,3,2))
-        # dice = torch.mean((2 * numerator + smooth) / (denominator + smooth))
-        # dc = 1-dice
-
-        # numerator = torch.sum(net_output * gt, axes)
-        # denominator = torch.sum(net_output, axes) + torch.sum(gt, axes)
-        # dice = 1 - (2 * numerator + smooth) / (denominator + smooth)
-        # dc = dice.mean()
-
         numerator = torch.sum(net_output * gt, axes)
         denominator = torch.sum(net_output, axes) + torch.sum(gt, axes)
-        dice = torch.mean((2 * numerator+smooth) / (denominator+smooth))
+        dice = torch.mean((2 * numerator + smooth) / (denominator + smooth))
+        dc = 1-dice
 
-        return 1-dice
+        return dc
 
 
 class DiceLoss_bh(nn.Module):

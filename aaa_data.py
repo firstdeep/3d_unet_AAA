@@ -24,13 +24,15 @@ class aaaLoader(torch.utils.data.Dataset):
                  raw_path,
                  mask_path,
                  file_idx,
-                 mode
+                 mode,
+                 transform=None
           ):
 
         self.raw_path = raw_path
         self.mask_path = mask_path
         self.file_idx = file_idx
         self.mode = mode
+        self.transform = transform
 
 
     def __getitem__(self, idx):
@@ -38,6 +40,16 @@ class aaaLoader(torch.utils.data.Dataset):
 
             raw = np.load(os.path.join(self.raw_path, idx))
             mask = np.load(os.path.join(self.mask_path, idx))
+
+            if self.transform is not None:
+                raw = raw.transpose((1, 2, 0))
+                mask = mask.transpose((1, 2, 0))
+                data = {'image': raw, 'mask': mask}
+
+                transformed = self.transform(**data)
+
+                raw = transformed['image'].transpose((2, 1, 0))
+                mask = transformed['mask'].transpose((2, 1, 0))
 
             raw = raw/255.
             raw = raw.astype(np.float32)
