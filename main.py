@@ -13,7 +13,8 @@ from utils import *
 from loss_func import *
 from evaluation import *
 from preprocessing_input_data import pre_train_data_saving, pre_test_data_saving
-
+from torchsummary import summary as summary_
+from unet_3d_re import UNet
 import volumentations as vol
 
 def load_config_yaml(config_file):
@@ -36,7 +37,7 @@ def initialize_weights(m):
 
 def main(config):
 
-    total_subject = list(range(1,54))
+    total_subject = list(range(1,61))
     kfold = KFold(n_splits=4, shuffle=False)
 
     for fold, (train_ids, test_ids) in enumerate(kfold.split(total_subject)):
@@ -53,7 +54,8 @@ def main(config):
         GPU_NUM = config['trainer']['gpu_idx']
         device = torch.device(f'cuda:{GPU_NUM}') if torch.cuda.is_available() else torch.device('cpu')
 
-        model = UNet3D(n_channels=1, n_classes=1)
+        model = UNet(n_channels=1, n_classes=1)
+        # model = UNet3D(n_channels=1, n_classes=1)
         model.apply(initialize_weights)
 
         params = [p for p in model.parameters() if p.requires_grad]
@@ -93,14 +95,15 @@ def main(config):
                            state[k] = v.to(device)
 
             model.to(device)
-            # 21.10.07: Change to use less memory
 
+            ###############################################################################
             if config['aaa']['transform']:
                 train_transform = vol.Compose([
                     vol.RotatePseudo2D(axes=(0,1), limit=(-10,10), interpolation=1)
                     # ,vol.ElasticTransformPseudo2D(alpha=1, sigma=10, alpha_affine=10)
                 ])
             else: train_transform = None
+            ###############################################################################
 
             loaders = get_aaa_train_loader(config, train_ids, transform=train_transform)
 
@@ -116,6 +119,7 @@ def main(config):
                 for i, t in tqdm(enumerate(loaders['train']), desc="[Epoch %d]Training..."%(epoch)):
                     print(" ", end='\r')
                     input, target, weight = split_training_batch(t, device)
+                    # output = logits
                     output = model(input)
 
                     if config['loss']['name'] == "BCEWithLogitsLoss":
@@ -123,11 +127,13 @@ def main(config):
 
                     elif config['loss']['name'] == "dice":
                         sig = nn.Sigmoid()
-                        loss = loss_criterion(sig(output), target)
+                        sig_output = sig(output)
+                        loss = loss_criterion(sig_output, target)
 
                     loss_sum.append(loss.item())
 
                     optimizer.zero_grad()
+
                     loss.backward()
 
                     optimizer.step()
@@ -145,21 +151,24 @@ def main(config):
                                }, './pretrained/%s_epoch%d_%d.pth'%(file_name,epoch,fold))
 
                 ########################################################################################
-
                 # validation
                 if config['trainer']['validation']:
 
                     if epoch % config['trainer']['validate_after_iters'] == 0:
-                        valid_idx = int(epoch // config['trainer']['validate_after_iters'])
 
                         model.eval()
 
-                        s_sum, t_sum = 0, 0
-                        intersection, union = 0, 0
-                        s_diff_t, t_diff_s = 0, 0
+                        loaders_val = get_aaa_val_loader(config, test_ids)
 
-                        for i, t in enumerate(loaders['val']):
-                            input, target = split_training_batch_validation(t, device)
+                        valid_path = config['aaa']['validation_path']
+                        valid_folder = "test_result"
+                        valid_mask_folder = "test_result_mask"
+                        if os.path.exists(os.path.join(valid_path, valid_folder)):
+                            shutil.rmtree(os.path.join(valid_path, valid_folder))
+                            shutil.rmtree(os.path.join(valid_path, valid_mask_folder))
+
+                        for i, t in enumerate(loaders_val['val']):
+                            input, target, idx = split_training_batch_validation(t, device)
                             # input & output shape: batch*1*8(slice_num)*256*256
                             output = model(input)
 
@@ -169,26 +178,32 @@ def main(config):
                             pred = np.array(output_sig.data.cpu())
                             target = np.array(target.data.cpu())
 
-                            s_sum, t_sum, s_diff_t, t_diff_s, intersection, union = eval_segmentation_volume(config, pred, target, input, idx=i, validation_idx=valid_idx)
-                            s_sum += s_sum
-                            t_sum += t_sum
-                            s_diff_t += s_diff_t
-                            t_diff_s += t_diff_s
-                            intersection += intersection
-                            union += union
+                            eval_segmentation_visualization_all(config, pred, target, input, file_name=idx[0],
+                                                                sub_depth=output.shape[2])
 
-                        overlap = intersection / t_sum
-                        jaccard = intersection / union
-                        dice = 2.0 * intersection / (s_sum + t_sum)
-                        fn = t_diff_s / t_sum
-                        fp = s_diff_t / s_sum
+                        subj_ol = []
+                        subj_ja = []
+                        subj_di = []
+                        subj_fn = []
+                        subj_fp = []
 
-                        print('** [INFO] Validation_%d Evaluation: Overlap: %.4f, Jaccard: %.4f, Dice: %.4f, FN: %.4f, FP: %.4f\n'
-                          % (valid_idx, overlap, jaccard, dice, fn, fp))
+                        for subject in test_ids:
 
-            print("=== Epoch iteration done ===")
+                            overlap, jaccard, dice, fn, fp = eval_segmentation_volume_test_all(config, "./visualization/test_result_mask",
+                                                                                               str(subject))
 
-        ########################################################################################
+                            print(str(subject) + ' %.4f %.4f %.4f %.4f %.4f' % (overlap, jaccard, dice, fn, fp))
+                            subj_ol.append(overlap)
+                            subj_ja.append(jaccard)
+                            subj_di.append(dice)
+                            subj_fn.append(fn)
+                            subj_fp.append(fp)
+
+                        print('** [INFO] Overlap: %.4f, Jaccard: %.4f, Dice: %.4f, FN: %.4f, FP: %.4f\n'
+                              % (np.mean(subj_ol), np.mean(subj_ja), np.mean(subj_di), np.mean(subj_fn),
+                                 np.mean(subj_fp)))
+                ##########################################################################
+
         # Test datasets evaluation
         if config['trainer']['mode'] =='test':
 
@@ -200,7 +215,8 @@ def main(config):
             # subject_depth
             subject_depth = []
 
-            path = os.path.join(config['aaa']['file_path'], config['aaa']['mask_path'])
+            # path = os.path.join(config['aaa']['file_path'], config['aaa']['mask_path'])
+            path = '/home/bh/AAA/3d_unet_AAA/data/mask_256/'
 
             folder_idx = natsort.natsorted(os.listdir(path))
             for fidx in folder_idx:
@@ -216,6 +232,7 @@ def main(config):
             model.eval()
             model.to(device)
 
+            test_ids = np.arange(1,61)
             loaders = get_aaa_test_loader(config, test_ids)
 
             valid_path = config['aaa']['validation_path']

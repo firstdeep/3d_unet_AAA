@@ -280,8 +280,11 @@ def get_aaa_train_loader(config, train_sub, transform=None):
     else:
         train_sub = [index for index in train_sub]
 
+    # train_input = [index for index in all_npy_file if int(index.split(".")[0]) in train_sub]
     train_input = [index for index in all_npy_file if int(index.split("_")[0]) in train_sub]
-    train_val = [index for index in all_npy_val_file if int(index.split("_")[0])==val]
+
+
+    # train_val = [index for index in all_npy_val_file if int(index.split("_")[0])==val]
 
     npy_raw_path = os.path.join(loaders_config['prepro_path'], loaders_config['raw_path'])
     npy_mask_path = os.path.join(loaders_config['prepro_path'], loaders_config['mask_path'])
@@ -292,10 +295,10 @@ def get_aaa_train_loader(config, train_sub, transform=None):
     npy_mask_val_path = os.path.join(loaders_config['prepro_path'], loaders_config['mask_test_path'])
 
     dataset_train = aaa_data.aaaLoader(raw_path=npy_raw_path, mask_path=npy_mask_path, file_idx=train_input, mode=config['trainer']["mode"], transform=transform)
-    dataset_val = aaa_data.aaaLoader(raw_path=npy_raw_val_path, mask_path=npy_mask_val_path, file_idx=train_val, mode=config['trainer']["mode"])
+    # dataset_val = aaa_data.aaaLoader(raw_path=npy_raw_val_path, mask_path=npy_mask_val_path, file_idx=train_val, mode=config['trainer']["mode"])
 
     train_datasets = torch.utils.data.Subset(dataset_train, train_input)
-    val_datasets = torch.utils.data.Subset(dataset_val, train_val)
+    # val_datasets = torch.utils.data.Subset(dataset_val, train_val)
 
     train_datasets.dataset.transform = transform
 
@@ -303,8 +306,32 @@ def get_aaa_train_loader(config, train_sub, transform=None):
     return {
         'train': DataLoader(train_datasets, batch_size=batch_size, shuffle=True, num_workers=num_workers),
         # don't shuffle during validation: useful when showing how predictions for a given batch get better over time
-        'val': DataLoader(val_datasets, batch_size=1, shuffle=False, num_workers=num_workers)
+        # 'val': DataLoader(val_datasets, batch_size=1, shuffle=False, num_workers=num_workers)
     }
+
+
+def get_aaa_val_loader(config, test_sub):
+
+    loaders_config = config['aaa']
+
+    batch_size = loaders_config.get('batch_size', 1)
+    num_workers = loaders_config.get('num_workers', 1)
+
+    all_npy_file = natsort.natsorted(
+        os.listdir(os.path.join(loaders_config['prepro_path'], loaders_config['raw_test_path'])))
+
+    # test_list = [index for index in all_npy_file if int(index.split(".")[0]) in test_sub]
+    test_list = [index for index in all_npy_file if int(index.split("_")[0]) in test_sub]
+    npy_raw_path = os.path.join(loaders_config['prepro_path'], loaders_config['raw_test_path'])
+    npy_mask_path = os.path.join(loaders_config['prepro_path'], loaders_config['mask_test_path'])
+
+    dataset_test = aaa_data.aaaLoader(raw_path=npy_raw_path, mask_path=npy_mask_path, file_idx=test_list, mode="val")
+
+    test_datasets = torch.utils.data.Subset(dataset_test, test_list)
+
+    # when training with volumetric data use batch_size of 1 due to GPU memory constraints
+    return {'val': DataLoader(test_datasets, batch_size=1, shuffle=False, num_workers=1)}
+
 
 def get_aaa_test_loader(config, test_sub):
 
@@ -326,8 +353,6 @@ def get_aaa_test_loader(config, test_sub):
 
     # when training with volumetric data use batch_size of 1 due to GPU memory constraints
     return {'test': DataLoader(test_datasets, batch_size=1, shuffle=False, num_workers=1)}
-
-
 
 def default_prediction_collate(batch):
     """
@@ -501,8 +526,9 @@ def eval_segmentation_visualization(config, pred, target, input_img, file_name="
 
 
     sub_id = int(file_name.split("_")[0])
+    gt = np.load("/home/bh/AAA/3d_unet_AAA/data_1227/preprocess/mask_128/%s.npy"%sub_id)
     sub_sequential = int(file_name.split("_")[1].split(".")[0])
-    sub_depth = sub_depth[(sub_id-1)]
+    sub_depth = gt.shape[0]
 
     quotient = sub_depth // config['aaa']['slice_num']
     remain = sub_depth % config['aaa']['slice_num']
@@ -527,6 +553,7 @@ def eval_segmentation_visualization(config, pred, target, input_img, file_name="
                 img_pred_color = cv2.cvtColor(pred_img, cv2.COLOR_GRAY2BGR)
                 img_gt_color = cv2.cvtColor(gt_img, cv2.COLOR_GRAY2BGR)
                 img_raw_color = cv2.cvtColor(input_slice, cv2.COLOR_GRAY2BGR)
+
 
                 green_pred = img_pred_color.copy()
                 red_gt = img_gt_color.copy()
@@ -623,3 +650,86 @@ def eval_segmentation_visualization(config, pred, target, input_img, file_name="
                 cv2.imwrite(os.path.join(valid_path,valid_folder,valid_name), img_all)
                 cv2.imwrite(os.path.join(valid_path,valid_mask_folder,valid_name), pred_img)
                 ############################################################################################################
+
+
+
+def eval_segmentation_visualization_all(config, pred, target, input_img, file_name="", sub_depth=0):
+
+    """
+    Calculate only one person 3D volume evaluation function
+    pred & target shape: Batch_size * 1 * Slice * H * W
+    pred: 0 or 1 (np.uint32) after sigmoid function
+    target: 0 or 1 (np.uint32)
+    """
+
+    input_img = np.array(input_img.data.cpu()) * 255
+    pred[pred>0.5] = 1.
+    pred[pred<=0.5] = 0.
+
+
+    sub_id = int(file_name.split(".")[0])
+
+    quotient = sub_depth // sub_depth
+    remain = sub_depth % config['aaa']['slice_num']
+    sub_sequential_check = np.arange(0,quotient)
+
+    for batch in range (0, pred.shape[0]):
+        batch_pred = pred[batch][0]
+        batch_target = target[batch][0]
+        batch_input = input_img[batch][0]
+
+        for slice in range(0,batch_pred.shape[0]):
+            pred_slice = batch_pred[slice].astype(np.uint32)
+            gt_slice = batch_target[slice].astype(np.uint32)
+            input_slice = batch_input[slice].astype(np.uint8)
+
+            ############################################################################################################
+            ### Visualization
+
+            pred_img = (pred_slice * 255).astype(np.uint8)
+            gt_img = (gt_slice * 255).astype(np.uint8)
+
+            img_pred_color = cv2.cvtColor(pred_img, cv2.COLOR_GRAY2BGR)
+            img_gt_color = cv2.cvtColor(gt_img, cv2.COLOR_GRAY2BGR)
+            img_raw_color = cv2.cvtColor(input_slice, cv2.COLOR_GRAY2BGR)
+
+            green_pred = img_pred_color.copy()
+            red_gt = img_gt_color.copy()
+
+            idx_pred = np.where(green_pred > 0)
+            idx_gt = np.where(red_gt > 0)
+            red_gt[idx_gt[0], idx_gt[1], :] = [0, 0, 255]
+            green_pred[idx_pred[0], idx_pred[1], :] = [0, 255, 0]
+
+            img_overlap = img_gt_color.copy()
+            img_overlap[:, :, 0] = 0
+            img_overlap[:, :, 1] = pred_img
+
+            add_img = cv2.addWeighted(img_raw_color, 0.7, img_overlap, 0.3, 0)
+
+            cv2.putText(img_raw_color, "\"Raw image\"", (5, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1,
+                       cv2.LINE_AA, bottomLeftOrigin=False)
+            cv2.putText(add_img, "\"Raw + GT + Predict\"", (5, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1,
+                       cv2.LINE_AA, bottomLeftOrigin=False)
+            cv2.putText(red_gt, "\"GT\"", (5, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA,
+                       bottomLeftOrigin=False)
+            cv2.putText(green_pred, "\"Predict\"", (5, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1,
+                       cv2.LINE_AA, bottomLeftOrigin=False)
+            cv2.putText(img_overlap, "\"GT + predict\"", (5, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1,
+                       cv2.LINE_AA, bottomLeftOrigin=False)
+
+            img_all = np.concatenate([img_raw_color, add_img, red_gt, green_pred, img_overlap], axis=1)
+
+            # Save image
+            valid_path = config['aaa']['validation_path']
+            valid_folder = "test_result"
+            valid_mask_folder = "test_result_mask"
+            if not os.path.exists(os.path.join(valid_path, valid_folder)):
+                os.mkdir(os.path.join(valid_path, valid_folder))
+                os.mkdir(os.path.join(valid_path, valid_mask_folder))
+
+            valid_name = "%d_%d.png"%(sub_id, slice)
+            cv2.imwrite(os.path.join(valid_path,valid_folder,valid_name), img_all)
+            cv2.imwrite(os.path.join(valid_path,valid_mask_folder,valid_name), pred_img)
+            ############################################################################################################
+

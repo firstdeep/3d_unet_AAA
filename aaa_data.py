@@ -41,15 +41,15 @@ class aaaLoader(torch.utils.data.Dataset):
             raw = np.load(os.path.join(self.raw_path, idx))
             mask = np.load(os.path.join(self.mask_path, idx))
 
-            if self.transform is not None:
-                raw = raw.transpose((1, 2, 0))
-                mask = mask.transpose((1, 2, 0))
-                data = {'image': raw, 'mask': mask}
-
-                transformed = self.transform(**data)
-
-                raw = transformed['image'].transpose((2, 1, 0))
-                mask = transformed['mask'].transpose((2, 1, 0))
+            # if self.transform is not None:
+            #     raw = raw.transpose((1, 2, 0))
+            #     mask = mask.transpose((1, 2, 0))
+            #     data = {'image': raw, 'mask': mask}
+            #
+            #     transformed = self.transform(**data)
+            #
+            #     raw = transformed['image'].transpose((2, 1, 0))
+            #     mask = transformed['mask'].transpose((2, 1, 0))
 
             raw = raw/255.
             raw = raw.astype(np.float32)
@@ -63,6 +63,24 @@ class aaaLoader(torch.utils.data.Dataset):
             mask = np.expand_dims(mask, axis=0)
 
             return raw, mask
+
+        if self.mode == "val":
+
+            raw = np.load(os.path.join(self.raw_path, idx))
+            mask = np.load(os.path.join(self.mask_path, idx))
+
+            raw = raw/255.
+            raw = raw.astype(np.float32)
+
+            mask = approximate_image(mask)
+            mask = mask/255.
+            mask = mask.astype(np.float32)
+
+            # expand dimension
+            raw = np.expand_dims(raw, axis=0)
+            mask = np.expand_dims(mask, axis=0)
+
+            return raw, mask, idx
 
         if self.mode == "test":
             raw = np.load(os.path.join(self.raw_path, idx))

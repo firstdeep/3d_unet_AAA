@@ -5,19 +5,22 @@
 #BH
 trainer:
   # mode train or test 
-  mode: "test"
+  mode: "train"
   # gpu number 
   gpu_idx: 0
   # path to the checkpoint directory
-  checkpoint_dir: "/home/bh/PycharmProjects/3d_pytorch_bh/data"
+  checkpoint_dir: "/home/bh/AAA/3d_unet_AAA/data_1227"
   # path to latest checkpoint; if provided the training will be resumed from that checkpoint
   resume: False
-  save_model_path: "/home/bh/PycharmProjects/3d_pytorch_bh/pretrained/"
-  save_model_name: "3d_deepAAA_50"
+  save_model_path: "/home/bh/AAA/3d_unet_AAA/pretrained/"
+# save_model_name: "mask_win_epoch100"
+  save_model_name: "final_1228_256_epoch10"
+  save_valid_name: "final0_0210"
   # max number of epochs
-  max_epochs: 121
+  max_epochs: 50
   # how many iterations between validations
-  validate_after_iters: 20
+  validation: False
+  validate_after_iters: 10
   # model with higher eval score is considered better
   eval_score_higher_is_better: True
   
@@ -30,29 +33,29 @@ loss:
 # optimizer configuration
 optimizer:
   # initial learning rate
-  lr: 0.0001
+  lr: 0.0003
   # weight decay
   weight_decay: 0.00001
  
 aaa:
+  transform: True
   # batch dimension; if number of GPUs is N > 1, then a batch_size of N * batch_size will automatically be taken for DataParallel
-  batch_size: 6
+  batch_size: 3
   # how many subprocesses to use for data loading
-  num_workers: 12
+  num_workers: 128
+  file_path: "/home/bh/AAA/3d_unet_AAA/data_1227/"
+  prepro_path: "/home/bh/AAA/3d_unet_AAA/data_1227/preprocess/" 
+  validation_path: "/home/bh/AAA/3d_unet_AAA/visualization/"
 
-  file_path: "/home/bh/PycharmProjects/3d_pytorch_bh/data/"
-  prepro_path: "/home/bh/PycharmProjects/3d_pytorch_bh/data/preprocess/" 
-  validation_path: "/home/bh/PycharmProjects/3d_pytorch_bh/visualization/"
-  raw_path: "raw_256_50"
-  mask_path: "mask_256_50"
-  raw_test_path: "raw_256_50_test"
-  mask_test_path: "mask_256_50_test"
+  raw_path: "raw_256"
+  mask_path: "mask_256"
+  raw_test_path: "raw_256_test"
+  mask_test_path: "mask_256_test"
   weight_path: null
 
   # threshold number of slice in datasets
-  slice_num: 8
+  slice_num: 32
   valid_ratio: 0.1
-
 
   # configuration of the train loader
   train:

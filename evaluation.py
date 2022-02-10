@@ -2,6 +2,7 @@ import numpy as np
 import cv2
 import os
 from PIL import Image
+import natsort
 
 def eval_segmentation_volume(config, pred, target, input_img, idx=0, validation_idx=0):
 
@@ -103,13 +104,12 @@ def eval_segmentation_volume(config, pred, target, input_img, idx=0, validation_
     return s_sum, t_sum, s_diff_t, t_diff_s, intersection, union
 
 
-def eval_segmentation_volume_test(config, save_path="", subj_id=0):
+def eval_segmentation_volume_test_all(config, save_path="", subj_id=0):
     # mask file load
     pred_path = save_path
-    gt_path = os.path.join(config['aaa']['file_path'], config['aaa']['mask_path'], str(subj_id))
+    gt = np.load(os.path.join(config['aaa']['prepro_path'], config['aaa']['mask_path'], "%s.npy"%subj_id))
 
-    gt_mask_list = sorted([name for name in os.listdir(gt_path)])
-    pred_mask_list = sorted([name for name in os.listdir(pred_path) if subj_id == name.split("_")[0]])
+    pred_mask_list = natsort.natsorted([name for name in os.listdir(pred_path) if subj_id == name.split("_")[0]])
 
     # print("[Subject = \"%d\"] & number of pred image \"%d\" & num of GT \"%d\" "%(int(subject), len(pred_mask_list), len(gt_mask_list)))
 
@@ -118,11 +118,51 @@ def eval_segmentation_volume_test(config, save_path="", subj_id=0):
     intersection, union = 0, 0
     s_diff_t, t_diff_s = 0, 0
 
-    if(len(gt_mask_list) == len(pred_mask_list)):
+    if(gt.shape[0] == len(pred_mask_list)):
         for i in range(len(pred_mask_list)):
 
-            gt_slice = Image.open(os.path.join(gt_path, gt_mask_list[i]))
-            gt_slice = (np.array(gt_slice)/255.0).astype(np.uint32)
+            gt_slice = (gt[i]/255.0).astype(np.uint32)
+
+            pred_slice = Image.open(os.path.join(pred_path, pred_mask_list[i]))
+            pred_slice = (np.array(pred_slice) / 255.0).astype(np.uint32)
+
+            s_sum += pred_slice.sum()
+            t_sum += gt_slice.sum()
+
+            intersection += np.bitwise_and(pred_slice, gt_slice).sum()
+            union += np.bitwise_or(pred_slice, gt_slice).sum()
+
+
+            s_diff_t += (pred_slice - np.bitwise_and(pred_slice, gt_slice)).sum()
+            t_diff_s += (gt_slice - np.bitwise_and(pred_slice, gt_slice)).sum()
+
+
+        overlab = intersection / t_sum
+        jaccard = intersection / union
+        dice = 2.0*intersection / (s_sum + t_sum)
+        fn = t_diff_s / t_sum
+        fp = s_diff_t / s_sum
+
+        return overlab, jaccard, dice, fn, fp
+
+def eval_segmentation_volume_test(config, save_path="", subj_id=0):
+    # mask file load
+    pred_path = save_path
+    gt = np.load(os.path.join(config['aaa']['prepro_path'], "mask_128", "%s.npy"%subj_id))
+    pred_mask_list = natsort.natsorted([name for name in os.listdir(pred_path) if subj_id == name.split("_")[0]])
+    gt_list = natsort.natsorted(os.listdir("/home/bh/AAA/3d_unet_AAA/data_1227/mask_256/"))
+
+    # calculation
+    s_sum, t_sum = 0, 0
+    intersection, union = 0, 0
+    s_diff_t, t_diff_s = 0, 0
+
+    if(gt.shape[0] == len(pred_mask_list)):
+        for i in range(len(pred_mask_list)):
+
+            gt_slice = cv2.imread(os.path.join("/home/bh/AAA/3d_unet_AAA/data_1227/mask_256/",pred_mask_list[i]), cv2.IMREAD_GRAYSCALE)
+            gt_slice = (gt_slice/255.0).astype(np.uint32)
+
             pred_slice = Image.open(os.path.join(pred_path, pred_mask_list[i]))
             pred_slice = (np.array(pred_slice) / 255.0).astype(np.uint32)
 
